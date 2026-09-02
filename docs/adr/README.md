@@ -10,9 +10,9 @@ Numérotées, immuables une fois acceptées. Une décision qui change est rempla
 | [0004](0004-session-persistence.md) | Persistance des sessions | Acceptée |
 | [0007](0007-assertion-polarity.md) | Polarité des assertions de transition | Acceptée |
 | [0003-précisions](0003-precisions-evaluator-initial-state-context-scope.md) | Évaluateur explicite, état initial, portée des références | Acceptée |
+| [0005](0005-roles-providers-command-ref.md) | Rôles, fournisseurs, résolution de command_ref | Acceptée |
 
 ## Prévues
-- 0005 — configuration des rôles, capacités et fournisseurs
 - 0006 — contrat d'invocation des skills
 - 0008 — sécurité opérationnelle (éventuelle)
 
