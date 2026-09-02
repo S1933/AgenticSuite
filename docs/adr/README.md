@@ -6,13 +6,14 @@ Numérotées, immuables une fois acceptées. Une décision qui change est rempla
 | --- | --- | --- |
 | [0001](0001-workflow-first.md) | Architecture centrée workflow | Acceptée |
 | [0002](0002-exit-criteria-and-failure-paths.md) | Critères de sortie et chemins d'échec | Acceptée |
+| [0003](0003-workflow-schema.md) | Schéma déclaratif de workflow | Acceptée |
+| [0004](0004-session-persistence.md) | Persistance des sessions | Acceptée |
 
 ## Prévues
-
-- 0003 — schéma YAML des workflows
-- 0004 — format de persistance des sessions
 - 0005 — configuration des rôles, capacités et fournisseurs
 - 0006 — contrat d'invocation des skills
+- 0007 — polarité des preuves
+- 0008 — sécurité opérationnelle (éventuelle)
 
 ## Modèle
 
