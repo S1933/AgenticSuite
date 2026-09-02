@@ -1,33 +1,34 @@
-# Local workflow state
-# Sessions are per-machine execution state, not shared project content.
+# État de workflow local
+# Les sessions sont un état d'exécution propre à une machine,
+# pas du contenu de projet partagé.
 sessions/
 .agentic/
 *.session.json
 
-# Secrets and local configuration
+# Secrets et configuration locale
 .env
 .env.*
 !.env.example
 config/local.*
 .claude/settings.local.json
 
-# Logs and scratch
+# Logs et brouillons
 *.log
 logs/
 tmp/
 scratch/
 
-# OS
+# Système
 .DS_Store
 Thumbs.db
 
-# Editors
+# Éditeurs
 .vscode/
 .idea/
 *.swp
 *.swo
 
-# Runtime artifacts (language not decided yet, kept generic)
+# Artefacts d'exécution (langage non encore décidé, volontairement générique)
 node_modules/
 dist/
 build/

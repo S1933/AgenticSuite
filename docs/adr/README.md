@@ -1,40 +1,40 @@
-# Architecture Decision Records
+# Décisions d'architecture (ADR)
 
-Numbered, immutable once accepted. A decision that changes is superseded by a new ADR rather than edited in place.
+Numérotées, immuables une fois acceptées. Une décision qui change est remplacée par une nouvelle ADR plutôt que modifiée sur place.
 
-| ADR | Title | Status |
+| ADR | Titre | Statut |
 | --- | --- | --- |
-| [0001](0001-workflow-first.md) | Workflow first architecture | Accepted |
-| [0002](0002-exit-criteria-and-failure-paths.md) | Exit criteria and failure paths | Proposed |
+| [0001](0001-workflow-first.md) | Architecture centrée workflow | Acceptée |
+| [0002](0002-exit-criteria-and-failure-paths.md) | Critères de sortie et chemins d'échec | Acceptée |
 
-## Planned
+## Prévues
 
-- 0003 — workflow YAML schema
-- 0004 — session persistence format
-- 0005 — role, capability and provider configuration
-- 0006 — skill invocation contract
+- 0003 — schéma YAML des workflows
+- 0004 — format de persistance des sessions
+- 0005 — configuration des rôles, capacités et fournisseurs
+- 0006 — contrat d'invocation des skills
 
-## Template
+## Modèle
 
 ```markdown
-# ADR NNNN: Title
+# ADR NNNN : Titre
 
-- **Status:** Proposed | Accepted | Superseded by ADR NNNN
-- **Date:** YYYY-MM-DD
+- **Statut :** Proposée | Acceptée | Remplacée par l'ADR NNNN
+- **Date :** AAAA-MM-JJ
 
-## Context
-What forces this decision, and what constraints apply.
+## Contexte
+Ce qui impose cette décision, et quelles contraintes s'appliquent.
 
-## Decision
-What is decided, stated so it can be followed without reading the rationale.
+## Décision
+Ce qui est décidé, formulé de façon à pouvoir être suivi sans lire le raisonnement.
 
-## Consequences
-### Positive
-### Negative
+## Conséquences
+### Positives
+### Négatives
 
-## Alternatives considered
-Each with the reason it was rejected.
+## Alternatives considérées
+Chacune avec la raison de son rejet.
 
 ## Validation
-How we will know the decision was right.
+Comment nous saurons que la décision était la bonne.
 ```

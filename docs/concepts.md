@@ -1,16 +1,16 @@
 # Concepts
 
-This file is the single definition of the project vocabulary. The README summarises it; the ADRs decide how each concept behaves.
+Ce fichier est la définition unique du vocabulaire du projet. Le README le résume ; les ADR décident du comportement de chaque concept.
 
 ## Workflow
 
-The main executable unit. A workflow defines states, the role responsible for each, transition conditions, and expected outputs.
+L'unité exécutable principale. Un workflow définit des états, le rôle responsable de chacun, les conditions de transition et les sorties attendues.
 
-Candidate workflows: `bugfix`, `feature`, `review`, `research`, `release`. Only `bugfix` is in scope for v0.
+Workflows envisagés : `bugfix`, `feature`, `review`, `research`, `release`. Seul `bugfix` est dans le périmètre de la v0.
 
-## Workflow definition
+## Définition de workflow
 
-The declarative description of a workflow, initially YAML. It describes intent and contracts, not implementation.
+La description déclarative d'un workflow, en YAML dans un premier temps. Elle décrit une intention et des contrats, pas une implémentation.
 
 ```yaml
 id: bugfix
@@ -24,44 +24,44 @@ states:
       - reproduction_context_is_sufficient
 ```
 
-This snippet is illustrative and incomplete. The schema is deliberately undecided until real usage constrains it (see ADR 0003, not yet written).
+Cet extrait est illustratif et incomplet. Le schéma reste volontairement indécis tant que l'usage réel ne l'a pas contraint (voir ADR 0003, non encore écrite).
 
 ## Session
 
-One execution of a workflow, with a stable identity and enough recorded information to be paused and resumed.
+Une exécution d'un workflow, dotée d'une identité stable et de suffisamment d'informations enregistrées pour être interrompue puis reprise.
 
-A session holds: session ID, workflow ID and version, current state, user-provided context, agent-generated context, transition history, decisions, artifacts, timestamps, status.
+Une session contient : identifiant de session, identifiant et version du workflow, état courant, contexte fourni par l'utilisateur, contexte produit par les agents, historique des transitions, décisions, artefacts, horodatages, statut.
 
-## State
+## État
 
-One meaningful phase of a workflow. A state contract may define entry conditions, responsibilities, required context, allowed actions and skills, expected artifacts, and exit conditions.
+Une phase significative d'un workflow. Le contrat d'un état peut définir des conditions d'entrée, des responsabilités, le contexte requis, les actions et skills autorisées, les artefacts attendus et les conditions de sortie.
 
-## Exit criteria
+## Critères de sortie
 
-The conditions that allow a session to leave a state. Each is either a **check**, evaluated deterministically by the runtime, or an **assertion**, evaluated by an agent against recorded evidence. See ADR 0002.
+Les conditions qui autorisent une session à quitter un état. Chacun est soit une **vérification**, évaluée de manière déterministe par le runtime, soit une **assertion**, évaluée par un agent à partir de preuves enregistrées. Voir l'ADR 0002.
 
 ## Transition
 
-A recorded move from one state to another. Transitions may go forward, backward, or into a failure state, and are always counted against a budget. See ADR 0002.
+Un passage enregistré d'un état à un autre. Les transitions peuvent aller vers l'avant, vers l'arrière ou vers un état d'échec, et sont toujours décomptées d'un budget. Voir l'ADR 0002.
 
-## Agent role
+## Rôle d'agent
 
-The responsibility requested by a state, expressed independently of any provider: `investigator`, `planner`, `implementer`, `reviewer`, `researcher`.
+La responsabilité demandée par un état, exprimée indépendamment de tout fournisseur : `investigator`, `planner`, `implementer`, `reviewer`, `researcher`.
 
-## Capability
+## Capacité
 
-What a role needs from an execution backend: reasoning, code editing, repository access, web research, tool execution, long context, low latency, low cost.
+Ce dont un rôle a besoin de la part d'un backend d'exécution : raisonnement, édition de code, accès au dépôt, recherche web, exécution d'outils, contexte long, latence faible, coût faible.
 
-Capabilities are the layer that lets a role be remapped to a different backend without changing workflow semantics.
+Les capacités sont la couche qui permet de réaffecter un rôle à un autre backend sans changer la sémantique du workflow.
 
-## Provider
+## Fournisseur
 
-An execution backend: an agent harness, coding environment, API, or subscription-backed tool. Provider choice belongs in configuration, below workflows and roles.
+Un backend d'exécution : harnais d'agent, environnement de développement, API ou outil adossé à un abonnement. Le choix du fournisseur appartient à la configuration, sous les workflows et les rôles.
 
 ## Skill
 
-A reusable engineering primitive that does one thing well, maintained in the [`S1933/Skills`](https://github.com/S1933/Skills) registry. Agentic Suite composes skills; it does not own them.
+Une primitive d'ingénierie réutilisable qui fait une seule chose bien, maintenue dans le registre [`S1933/Skills`](https://github.com/S1933/Skills). Agentic Suite compose des skills ; il ne les possède pas.
 
-## Artifact
+## Artefact
 
-Anything a state produces that later states or a human may need: a diagnosis, a reproduction, a patch, a test result, a decision record.
+Tout ce qu'un état produit et dont un état ultérieur ou un humain pourra avoir besoin : un diagnostic, une reproduction, un patch, un résultat de test, une décision consignée.

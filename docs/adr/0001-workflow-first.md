@@ -1,108 +1,108 @@
-# ADR 0001: Workflow First Architecture
+# ADR 0001 : Architecture centrée workflow
 
-- **Status:** Accepted
-- **Date:** 2026-09-02
-- **Decision owners:** Agentic Suite maintainers
+- **Statut :** Acceptée
+- **Date :** 2026-09-02
+- **Responsables de la décision :** mainteneurs d'Agentic Suite
 
-## Context
+## Contexte
 
-Agentic Suite is intended to provide a complete working method for software development with AI agents.
+Agentic Suite vise à fournir une méthode de travail complète pour développer du logiciel avec des agents IA.
 
-The surrounding ecosystem changes rapidly:
+L'écosystème environnant change rapidement :
 
-- model quality changes,
-- providers change,
-- subscription limits change,
-- agent harnesses appear and disappear,
-- different tools provide different strengths.
+- la qualité des modèles change,
+- les fournisseurs changent,
+- les limites d'abonnement changent,
+- les harnais d'agents apparaissent et disparaissent,
+- chaque outil a ses propres forces.
 
-Building the project around one agent, model, vendor, or CLI would make the architecture fragile.
+Construire le projet autour d'un seul agent, modèle, éditeur ou CLI rendrait l'architecture fragile.
 
-The existing Skills repository already provides reusable engineering primitives across discovery, design, implementation, quality, and delivery.
+Le dépôt Skills existant fournit déjà des primitives d'ingénierie réutilisables couvrant la découverte, la conception, l'implémentation, la qualité et la livraison.
 
-What is missing is a higher-level layer that decides how those primitives are composed into a complete engineering process.
+Ce qui manque, c'est une couche supérieure qui décide comment ces primitives se composent en un processus d'ingénierie complet.
 
-The first concrete use case is bug fixing.
+Le premier cas d'usage concret est la correction de bugs.
 
-Bug reports frequently arrive with insufficient context, so a useful bugfix process cannot begin directly with code modification.
+Les rapports de bug arrivent fréquemment avec un contexte insuffisant : un processus de bugfix utile ne peut donc pas commencer directement par une modification de code.
 
-The system needs an explicit process for:
+Le système a besoin d'un processus explicite pour :
 
-1. acquiring context,
-2. investigating the problem,
-3. implementing a fix,
-4. validating the result,
-5. recording completion.
+1. acquérir du contexte,
+2. investiguer le problème,
+3. implémenter un correctif,
+4. valider le résultat,
+5. enregistrer la complétion.
 
-## Decision
+## Décision
 
-Agentic Suite will use a **workflow-first architecture**.
+Agentic Suite adopte une **architecture centrée workflow**.
 
-The workflow is the primary unit launched by the user.
+Le workflow est l'unité principale lancée par l'utilisateur.
 
-Agents, skills, providers, and models exist below the workflow and serve its execution.
+Les agents, skills, fournisseurs et modèles se situent sous le workflow et servent son exécution.
 
-The initial conceptual hierarchy is:
+La hiérarchie conceptuelle initiale est :
 
 ```text
-User
+Utilisateur
   ↓
 Workflow
   ↓
 Session
   ↓
-State
+État
   ↓
-Agent role
+Rôle d'agent
   ↓
 Skills
   ↓
-Provider / Model / Tools
+Fournisseur / Modèle / Outils
 ```
 
-## Workflow definitions
+## Définitions de workflow
 
-Workflows will be declarative.
+Les workflows sont déclaratifs.
 
-The initial representation will be YAML.
+La représentation initiale est le YAML.
 
-A workflow definition is expected to describe:
+Une définition de workflow doit décrire :
 
-- workflow identity,
-- version,
-- ordered or reachable states,
-- role responsible for each state,
-- state responsibilities,
-- expected artifacts,
-- exit criteria,
-- terminal states.
+- l'identité du workflow,
+- sa version,
+- ses états, ordonnés ou atteignables,
+- le rôle responsable de chaque état,
+- les responsabilités de chaque état,
+- les artefacts attendus,
+- les critères de sortie,
+- les états terminaux.
 
-The runtime must interpret the workflow definition instead of embedding workflow-specific behavior directly in code.
+Le runtime doit interpréter la définition de workflow plutôt que d'embarquer un comportement spécifique à un workflow directement dans le code.
 
 ## Sessions
 
-Every workflow execution creates a persistent session.
+Toute exécution de workflow crée une session persistante.
 
-A session must have a stable identity and preserve enough information to pause and resume execution.
+Une session doit avoir une identité stable et préserver assez d'informations pour être interrompue puis reprise.
 
-The initial session model should include:
+Le modèle de session initial doit contenir :
 
-- session ID,
-- workflow ID,
-- workflow version,
-- current state,
-- collected context,
-- transition history,
-- generated artifacts,
-- status.
+- l'identifiant de session,
+- l'identifiant du workflow,
+- la version du workflow,
+- l'état courant,
+- le contexte collecté,
+- l'historique des transitions,
+- les artefacts produits,
+- le statut.
 
-Persistence technology is intentionally not decided in this ADR.
+La technologie de persistance n'est volontairement pas tranchée dans cette ADR.
 
-## State machine
+## Machine à états
 
-A workflow progresses through explicit states.
+Un workflow progresse à travers des états explicites.
 
-The first `bugfix` workflow is expected to use approximately:
+Le premier workflow `bugfix` utilisera approximativement :
 
 ```text
 Discovery
@@ -116,165 +116,165 @@ Validation
 Done
 ```
 
-Each non-terminal state must eventually define an execution contract.
+Chaque état non terminal devra définir un contrat d'exécution.
 
-That contract may contain:
+Ce contrat peut contenir :
 
-- entry conditions,
-- responsibilities,
-- required context,
-- allowed tools or skills,
-- expected outputs,
-- exit conditions.
+- des conditions d'entrée,
+- des responsabilités,
+- le contexte requis,
+- les outils ou skills autorisés,
+- les sorties attendues,
+- les conditions de sortie.
 
-## Discovery is a first-class state
+## La découverte est un état de premier plan
 
-The first bugfix state will be `discovery`.
+Le premier état de `bugfix` est `discovery`.
 
-It exists because the initial bug report cannot be assumed to contain sufficient context.
+Il existe parce qu'on ne peut pas supposer que le rapport de bug initial contient un contexte suffisant.
 
-During discovery, the system should interview the user interactively.
+Pendant la découverte, le système interroge l'utilisateur de manière interactive.
 
-Questions should be asked one at a time.
+Les questions sont posées une à la fois.
 
-The next question may depend on previous answers.
+La question suivante peut dépendre des réponses précédentes.
 
-Discovery ends only when the workflow has enough context to begin investigation.
+La découverte ne se termine que lorsque le workflow dispose d'assez de contexte pour commencer l'investigation.
 
-The exact completeness criteria will be refined through real usage.
+Les critères exacts de complétude seront affinés par l'usage réel.
 
-## Autonomous state transitions
+## Transitions autonomes
 
-Normal workflow transitions do not require explicit human approval.
+Les transitions normales d'un workflow ne nécessitent pas d'approbation humaine explicite.
 
-An agent may move the session to the next state when the current state's exit criteria are satisfied.
+Un agent peut faire passer la session à l'état suivant lorsque les critères de sortie de l'état courant sont satisfaits.
 
-This is **contract-driven autonomy**, not unrestricted autonomy.
+C'est une **autonomie sous contrat**, pas une autonomie illimitée.
 
-Important product, architectural, security, or irreversible decisions may still require explicit human input when a workflow or state defines that requirement.
+Les décisions produit, architecturales, de sécurité ou irréversibles peuvent malgré tout exiger une intervention humaine explicite lorsqu'un workflow ou un état le prévoit.
 
-## Roles instead of model names
+## Des rôles plutôt que des noms de modèles
 
-Workflow definitions must refer to agent roles rather than specific models or providers.
+Les définitions de workflow doivent faire référence à des rôles d'agent plutôt qu'à des modèles ou fournisseurs précis.
 
-Example roles may include:
+Exemples de rôles :
 
 - `investigator`,
 - `planner`,
 - `implementer`,
 - `reviewer`.
 
-The mapping from role to provider/model belongs in configuration outside the workflow definition.
+Le mappage rôle → fournisseur/modèle appartient à la configuration, en dehors de la définition de workflow.
 
-This allows the execution backend to change without changing the workflow.
+Cela permet de changer de backend d'exécution sans changer le workflow.
 
-## Skills remain separate primitives
+## Les skills restent des primitives séparées
 
-Agentic Suite will consume reusable skills rather than absorb skill content into the workflow runtime.
+Agentic Suite consomme des skills réutilisables plutôt que d'absorber leur contenu dans le runtime.
 
-The Skills repository remains responsible for the registry and installation of focused engineering skills.
+Le dépôt Skills reste responsable du registre et de l'installation de skills d'ingénierie ciblées.
 
-Agentic Suite is responsible for deciding when those skills participate in a workflow.
+Agentic Suite est responsable de décider quand ces skills participent à un workflow.
 
-This preserves a clean separation:
+Cela préserve une séparation nette :
 
 ```text
-Skills repo
-  → reusable capabilities
+Dépôt Skills
+  → capacités réutilisables
 
 Agentic Suite
-  → orchestration and lifecycle
+  → orchestration et cycle de vie
 ```
 
-## Initial scope
+## Périmètre initial
 
-The first implementation will intentionally support:
+La première implémentation supporte volontairement :
 
-- one workflow: `bugfix`,
-- one active execution path,
-- declarative YAML,
-- explicit states,
-- persistent sessions,
-- autonomous transitions,
-- reusable skills.
+- un seul workflow : `bugfix`,
+- un seul chemin d'exécution actif,
+- du YAML déclaratif,
+- des états explicites,
+- des sessions persistantes,
+- des transitions autonomes,
+- des skills réutilisables.
 
-The following are out of scope for the first version:
+Sont hors périmètre pour la première version :
 
-- workflows calling other workflows,
-- manager/worker agent hierarchies,
-- large-scale parallel agents,
-- distributed execution,
-- complex scheduling,
-- a full graphical UI,
-- automatic provider optimization.
+- les workflows qui appellent d'autres workflows,
+- les hiérarchies d'agents manager/worker,
+- les agents parallèles à grande échelle,
+- l'exécution distribuée,
+- l'ordonnancement complexe,
+- une interface graphique complète,
+- l'optimisation automatique de fournisseur.
 
-## Consequences
+## Conséquences
 
-### Positive
+### Positives
 
-- Workflows remain stable while models and providers change.
-- Workflow behavior becomes inspectable and version-controlled.
-- Sessions can be paused and resumed.
-- Agents gain autonomy within explicit boundaries.
-- Existing skills can be reused without turning the Skills repository into an orchestration framework.
-- The architecture can evolve toward multiple workflows without redesigning the core mental model.
+- Les workflows restent stables pendant que les modèles et fournisseurs changent.
+- Le comportement d'un workflow devient inspectable et versionné.
+- Les sessions peuvent être interrompues et reprises.
+- Les agents gagnent de l'autonomie à l'intérieur de frontières explicites.
+- Les skills existantes sont réutilisables sans transformer le dépôt Skills en framework d'orchestration.
+- L'architecture peut évoluer vers plusieurs workflows sans redessiner le modèle mental de base.
 
-### Negative
+### Négatives
 
-- A workflow engine and state persistence must exist before the system becomes useful.
-- Declarative schemas introduce design and validation work.
-- Some behavior may be harder to express declaratively than directly in code.
-- Role/provider indirection adds configuration.
-- Exit criteria must be designed carefully or autonomous transitions may be unreliable.
+- Un moteur de workflow et une persistance d'état doivent exister avant que le système soit utile.
+- Les schémas déclaratifs impliquent un travail de conception et de validation.
+- Certains comportements sont plus difficiles à exprimer en déclaratif qu'en code.
+- L'indirection rôle/fournisseur ajoute de la configuration.
+- Les critères de sortie doivent être conçus soigneusement, sinon les transitions autonomes deviennent peu fiables.
 
-## Alternatives considered
+## Alternatives considérées
 
-### Agent-first architecture
+### Architecture centrée agent
 
-The user launches an agent and the agent decides how to perform the whole task.
+L'utilisateur lance un agent, et l'agent décide comment mener toute la tâche.
 
-Rejected because the process becomes dependent on agent behavior and is harder to observe, resume, test, and reuse.
+Rejetée : le processus devient dépendant du comportement de l'agent et devient plus difficile à observer, reprendre, tester et réutiliser.
 
-### Provider-first architecture
+### Architecture centrée fournisseur
 
-The project is organized around Codex, Claude Code, OpenCode, Cursor, or another specific tool.
+Le projet s'organise autour de Codex, Claude Code, OpenCode, Cursor ou d'un outil précis.
 
-Rejected because providers and subscriptions change too quickly.
+Rejetée : les fournisseurs et les abonnements changent trop vite.
 
-### Skill-first architecture
+### Architecture centrée skill
 
-Complex workflows are implemented directly as large orchestration skills.
+Les workflows complexes sont implémentés directement comme de grosses skills d'orchestration.
 
-Rejected as the primary architecture because skills should remain reusable primitives and should not own persistent workflow lifecycle or application state.
+Rejetée comme architecture principale : les skills doivent rester des primitives réutilisables et ne doivent pas porter le cycle de vie persistant d'un workflow ni l'état applicatif.
 
-### Hard-coded workflows
+### Workflows codés en dur
 
-Each workflow is implemented directly in application code.
+Chaque workflow est implémenté directement dans le code applicatif.
 
-Rejected as the default because workflow behavior should be inspectable, editable, and versioned independently of the runtime.
+Rejetée par défaut : le comportement d'un workflow doit être inspectable, éditable et versionné indépendamment du runtime.
 
 ## Validation
 
-This decision is considered successful when Agentic Suite can run a real `bugfix` session that:
+Cette décision sera considérée réussie lorsqu'Agentic Suite pourra exécuter une vraie session `bugfix` qui :
 
-1. starts from an incomplete bug report,
-2. performs interactive discovery,
-3. persists the collected context,
-4. advances to investigation without manual state manipulation,
-5. records a diagnosis,
-6. executes a fix,
-7. validates the result,
-8. reaches `done`,
-9. can be paused and resumed during the process.
+1. part d'un rapport de bug incomplet,
+2. mène une découverte interactive,
+3. persiste le contexte collecté,
+4. avance vers l'investigation sans manipulation manuelle de l'état,
+5. enregistre un diagnostic,
+6. exécute un correctif,
+7. valide le résultat,
+8. atteint `done`,
+9. peut être interrompue et reprise en cours de route.
 
-## Follow-up decisions
+## Décisions à suivre
 
-Future ADRs may define:
+De futures ADR pourront définir :
 
-- the workflow YAML schema,
-- session persistence format,
-- role and capability configuration,
-- provider adapters,
-- skill invocation contracts,
-- human approval boundaries,
-- interface architecture.
+- le schéma YAML des workflows,
+- le format de persistance des sessions,
+- la configuration des rôles et capacités,
+- les adaptateurs de fournisseurs,
+- les contrats d'invocation de skills,
+- les frontières d'approbation humaine,
+- l'architecture de l'interface.

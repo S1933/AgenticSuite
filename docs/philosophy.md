@@ -1,328 +1,328 @@
-# Philosophy
+# Philosophie
 
-Agentic Suite is not an attempt to build the smartest autonomous coding agent.
+Agentic Suite ne cherche pas à construire l'agent de code autonome le plus intelligent.
 
-It is an attempt to build a better way to work with AI agents.
+Il cherche à construire une meilleure manière de travailler avec des agents.
 
-The project treats models, agent harnesses, and subscriptions as replaceable infrastructure. The durable part is the engineering workflow around them.
+Le projet considère les modèles, les harnais d'agents et les abonnements comme une infrastructure remplaçable. Ce qui dure, c'est le workflow d'ingénierie qui les entoure.
 
-## 1. Workflow first
+## 1. Le workflow d'abord
 
-The primary abstraction is the workflow.
+L'abstraction principale est le workflow.
 
-Users should think:
+L'utilisateur doit penser :
 
-> I am running a bugfix workflow.
+> Je lance un workflow de bugfix.
 
-Not:
+Et non :
 
-> I am running model X inside tool Y with prompt Z.
+> Je lance le modèle X dans l'outil Y avec le prompt Z.
 
-Agents are execution resources.
+Les agents sont des ressources d'exécution.
 
-Models are execution resources.
+Les modèles sont des ressources d'exécution.
 
-Skills are execution primitives.
+Les skills sont des primitives d'exécution.
 
-The workflow gives those resources purpose, order, and context.
+Le workflow donne à ces ressources un but, un ordre et un contexte.
 
-## 2. Context is part of the work
+## 2. Le contexte fait partie du travail
 
-AI agents are often given requests that are incomplete, ambiguous, or badly structured.
+Les agents reçoivent souvent des demandes incomplètes, ambiguës ou mal structurées.
 
-Starting implementation immediately is therefore a mistake.
+Commencer l'implémentation immédiatement est donc une erreur.
 
-Agentic Suite treats context acquisition as a first-class workflow phase.
+Agentic Suite traite l'acquisition de contexte comme une phase de workflow à part entière.
 
-For a bugfix, the workflow begins with discovery.
+Pour un bugfix, le workflow commence par la découverte.
 
-The agent should interview the user one question at a time, adapt the next question to previous answers, and continue until the problem is sufficiently understood.
+L'agent interroge l'utilisateur une question à la fois, adapte la question suivante aux réponses précédentes, et continue jusqu'à ce que le problème soit suffisamment compris.
 
-The quality of execution depends on the quality of context.
+La qualité de l'exécution dépend de la qualité du contexte.
 
-## 3. Ask before making important assumptions
+## 3. Demander avant de faire une hypothèse importante
 
-Agents are good at implementation.
+Les agents sont bons en implémentation.
 
-They are less reliable when silently making product, architectural, domain, or operational decisions on behalf of the developer.
+Ils sont moins fiables lorsqu'ils prennent silencieusement des décisions produit, architecturales, métier ou opérationnelles à la place du développeur.
 
-When a decision materially changes the solution, the system should prefer explicit clarification over hidden assumption.
+Lorsqu'une décision change matériellement la solution, le système doit préférer une clarification explicite à une hypothèse cachée.
 
-This does not mean requiring human approval for every workflow transition.
+Cela ne signifie pas exiger une validation humaine à chaque transition.
 
-It means distinguishing between:
+Cela signifie distinguer :
 
-- missing context that must be clarified,
-- execution decisions the agent can make autonomously,
-- important design decisions that belong to the human.
+- le contexte manquant qui doit être clarifié,
+- les décisions d'exécution que l'agent peut prendre seul,
+- les décisions de conception importantes qui appartiennent à l'humain.
 
-## 4. Declarative over imperative
+## 4. Déclaratif plutôt qu'impératif
 
-Workflows should be readable without reading runtime code.
+Un workflow doit être lisible sans lire le code du runtime.
 
-A workflow definition should describe:
+Une définition de workflow doit décrire :
 
-- its states,
-- responsibilities,
-- roles,
-- transition criteria,
-- expected artifacts.
+- ses états,
+- ses responsabilités,
+- ses rôles,
+- ses critères de transition,
+- ses artefacts attendus.
 
-YAML is the initial representation because it is readable, diffable, portable, and easy for both humans and agents to edit.
+YAML est la représentation initiale parce qu'elle est lisible, diffable, portable, et facile à éditer aussi bien par un humain que par un agent.
 
-The runtime interprets the workflow.
+Le runtime interprète le workflow.
 
-The workflow should not be embedded in the runtime.
+Le workflow ne doit pas être embarqué dans le runtime.
 
-## 5. Roles over model names
+## 5. Des rôles plutôt que des noms de modèles
 
-A workflow should request an `investigator`, `implementer`, or `reviewer`.
+Un workflow doit demander un `investigator`, un `implementer` ou un `reviewer`.
 
-It should not require a specific commercial model.
+Il ne doit pas exiger un modèle commercial précis.
 
-Models change quickly.
+Les modèles changent vite.
 
-Pricing changes quickly.
+Les tarifs changent vite.
 
-Subscriptions change quickly.
+Les abonnements changent vite.
 
-Providers disappear.
+Les fournisseurs disparaissent.
 
-A stable workflow should survive all of those changes.
+Un workflow stable doit survivre à tout cela.
 
-Concrete models belong in configuration.
+Les modèles concrets appartiennent à la configuration.
 
-Responsibilities belong in workflows.
+Les responsabilités appartiennent aux workflows.
 
-## 6. Capabilities over vendors
+## 6. Des capacités plutôt que des fournisseurs
 
-Roles may require capabilities such as:
+Un rôle peut exiger des capacités telles que :
 
-- reasoning,
-- code editing,
-- repository access,
-- web research,
-- tool execution,
-- long context,
-- low latency,
-- low cost.
+- le raisonnement,
+- l'édition de code,
+- l'accès au dépôt,
+- la recherche web,
+- l'exécution d'outils,
+- un contexte long,
+- une latence faible,
+- un coût faible.
 
-Capabilities provide a layer between workflow roles and providers.
+Les capacités forment une couche intermédiaire entre les rôles d'un workflow et les fournisseurs.
 
-This allows a role to be remapped without changing workflow semantics.
+Cela permet de réaffecter un rôle sans changer la sémantique du workflow.
 
-## 7. Skills are primitives, not workflows
+## 7. Les skills sont des primitives, pas des workflows
 
-A skill should do one reusable thing well.
+Une skill doit faire une seule chose réutilisable, et bien.
 
-Examples:
+Exemples :
 
-- diagnose a bug,
-- review code,
-- create a spec,
-- create tickets,
-- verify completion,
-- use a worktree,
-- perform a security review.
+- diagnostiquer un bug,
+- relire du code,
+- rédiger une spécification,
+- créer des tickets,
+- vérifier une complétion,
+- utiliser un worktree,
+- mener une revue de sécurité.
 
-Higher-level behavior belongs in Agentic Suite.
+Les comportements de plus haut niveau appartiennent à Agentic Suite.
 
-Agentic Suite composes skills into workflows.
+Agentic Suite compose des skills en workflows.
 
-This separation keeps the Skills registry reusable and prevents it from becoming an application framework.
+Cette séparation garde le registre de skills réutilisable et l'empêche de devenir un framework applicatif.
 
-## 8. Repeated behavior should become reusable
+## 8. Un comportement répété doit devenir réutilisable
 
-Repeated single-step behavior can become a shortcut, preset, or command.
+Un comportement répété en une étape peut devenir un raccourci, un préréglage ou une commande.
 
-Repeated multi-step behavior should become a workflow.
+Un comportement répété en plusieurs étapes doit devenir un workflow.
 
-Repeated domain-specific execution logic can become a skill.
+Une logique d'exécution répétée et spécifique à un domaine peut devenir une skill.
 
-The goal is to reduce manual glue while keeping abstractions understandable.
+L'objectif est de réduire la glue manuelle tout en gardant les abstractions compréhensibles.
 
-## 9. Explicit state beats invisible agent behavior
+## 9. Un état explicite vaut mieux qu'un comportement d'agent invisible
 
-A long-running agent should not feel like a black box.
+Un agent qui travaille longtemps ne doit pas ressembler à une boîte noire.
 
-A workflow should expose where it is:
+Un workflow doit montrer où il en est :
 
 ```text
 Discovery → Investigation → Fix → Validation → Done
 ```
 
-State provides:
+L'état apporte :
 
-- observability,
-- resumability,
-- debugging,
-- predictable automation,
-- a better mental model for the user.
+- de l'observabilité,
+- de la reprise,
+- du débogage,
+- une automatisation prévisible,
+- un meilleur modèle mental pour l'utilisateur.
 
-The user should be able to understand what the system is currently doing without reading the full conversation history.
+L'utilisateur doit pouvoir comprendre ce que fait le système sans relire tout l'historique de conversation.
 
-## 10. Sessions are persistent
+## 10. Les sessions sont persistantes
 
-A workflow execution is a session, not a disposable prompt.
+Une exécution de workflow est une session, pas un prompt jetable.
 
-Sessions should preserve:
+Une session doit préserver :
 
-- context,
-- decisions,
-- history,
-- artifacts,
-- current state.
+- le contexte,
+- les décisions,
+- l'historique,
+- les artefacts,
+- l'état courant.
 
-A developer must be able to stop working and resume later without reconstructing the whole problem.
+Un développeur doit pouvoir s'arrêter et reprendre plus tard sans reconstruire tout le problème.
 
-Persistence is therefore a core requirement, even if the initial implementation is simple.
+La persistance est donc une exigence de fond, même si l'implémentation initiale reste simple.
 
-## 11. Autonomous transitions, explicit contracts
+## 11. Transitions autonomes, contrats explicites
 
-The user should not need to approve every normal transition.
+L'utilisateur ne doit pas avoir à approuver chaque transition normale.
 
-Instead, each workflow state should define clear exit criteria.
+Chaque état de workflow doit plutôt définir des critères de sortie clairs.
 
-If the criteria are satisfied, the agent may advance automatically.
+Si les critères sont satisfaits, l'agent peut avancer automatiquement.
 
-This gives autonomy boundaries.
+Cela donne des frontières à l'autonomie.
 
-The goal is not unrestricted autonomy.
+L'objectif n'est pas une autonomie illimitée.
 
-The goal is **contract-driven autonomy**.
+L'objectif est une **autonomie sous contrat**.
 
-## 12. Verification before completion
+## 12. Vérification avant complétion
 
-An agent should not declare success because it changed code.
+Un agent ne doit pas déclarer le succès parce qu'il a modifié du code.
 
-Completion requires evidence.
+La complétion exige des preuves.
 
-Depending on the workflow, evidence may include:
+Selon le workflow, ces preuves peuvent inclure :
 
-- reproduction no longer failing,
-- relevant tests passing,
-- regression checks,
-- linting or static analysis,
-- review,
-- security checks,
-- documented limitations.
+- une reproduction qui ne échoue plus,
+- des tests pertinents qui passent,
+- des vérifications de régression,
+- du lint ou de l'analyse statique,
+- une revue,
+- des contrôles de sécurité,
+- des limitations documentées.
 
-"Done" is a workflow state with criteria, not a sentence generated by a model.
+« Terminé » est un état de workflow assorti de critères, pas une phrase générée par un modèle.
 
-## 13. Use different perspectives when review matters
+## 13. Changer de perspective quand la revue compte
 
-The agent that implemented a change should not automatically be considered the best reviewer of that same change.
+L'agent qui a implémenté un changement n'est pas automatiquement le meilleur relecteur de ce changement.
 
-For medium or high-risk work, Agentic Suite should make it possible to use a different role, agent, or model for review.
+Pour un travail à risque moyen ou élevé, Agentic Suite doit permettre d'utiliser un autre rôle, un autre agent ou un autre modèle pour la revue.
 
-Cross-model review may be useful, but recursive review loops should be avoided.
+La revue croisée entre modèles peut être utile, mais les boucles de revue récursives sont à éviter.
 
-More review is not automatically better review.
+Plus de revue n'est pas automatiquement une meilleure revue.
 
-## 14. Parallelism is optional complexity
+## 14. Le parallélisme est une complexité optionnelle
 
-Multiple agents, subagents, worktrees, and manager/worker architectures are powerful.
+Les agents multiples, les sous-agents, les worktrees et les architectures manager/worker sont puissants.
 
-They are also expensive and complex.
+Ils sont aussi coûteux et complexes.
 
-Agentic Suite should introduce parallelism only where it solves a demonstrated problem.
+Agentic Suite ne doit introduire du parallélisme que là où il résout un problème démontré.
 
-A small task should remain small.
+Une petite tâche doit rester petite.
 
-A single workflow with one active execution path is the correct starting point.
+Un workflow unique avec un seul chemin d'exécution actif est le bon point de départ.
 
-## 15. Human control lives at the right level
+## 15. Le contrôle humain se place au bon niveau
 
-The human should control:
+L'humain contrôle :
 
-- intent,
-- important trade-offs,
-- architecture,
-- risk tolerance,
-- final accountability.
+- l'intention,
+- les arbitrages importants,
+- l'architecture,
+- la tolérance au risque,
+- la responsabilité finale.
 
-The system should handle:
+Le système prend en charge :
 
-- repetitive execution,
-- state progression,
-- context preservation,
-- skill selection,
-- verification steps,
-- routine orchestration.
+- l'exécution répétitive,
+- la progression d'état,
+- la préservation du contexte,
+- la sélection des skills,
+- les étapes de vérification,
+- l'orchestration de routine.
 
-The purpose of the system is not to remove the developer.
+Le but du système n'est pas de retirer le développeur.
 
-It is to let the developer operate at a higher level.
+Il est de lui permettre d'opérer à un niveau plus élevé.
 
-## 16. Optimize for real usage
+## 16. Optimiser pour l'usage réel
 
-Agentic Suite should evolve from actual workflows, not imagined platform requirements.
+Agentic Suite doit évoluer à partir de workflows réellement utilisés, pas d'exigences de plateforme imaginées.
 
-The first implementation intentionally supports one workflow: `bugfix`.
+La première implémentation ne supporte volontairement qu'un seul workflow : `bugfix`.
 
-The project should resist adding:
+Le projet doit résister à l'ajout de :
 
-- generic plugin systems,
-- distributed schedulers,
-- multi-agent swarms,
-- complex UIs,
-- elaborate schemas,
+- systèmes de plugins génériques,
+- ordonnanceurs distribués,
+- essaims multi-agents,
+- interfaces complexes,
+- schémas élaborés,
 
-until real usage creates a clear need.
+tant qu'un usage réel n'en démontre pas le besoin.
 
-## 17. Portability is a feature
+## 17. La portabilité est une fonctionnalité
 
-The project should be useful even when the surrounding AI ecosystem changes.
+Le projet doit rester utile même quand l'écosystème IA autour de lui change.
 
-A workflow created today should ideally remain understandable and adaptable later.
+Un workflow créé aujourd'hui devrait idéalement rester compréhensible et adaptable plus tard.
 
-That means preferring:
+Cela implique de préférer :
 
-- plain text,
-- Markdown,
-- YAML,
-- explicit contracts,
-- simple storage,
-- open formats,
-- interchangeable execution backends.
+- le texte brut,
+- le Markdown,
+- le YAML,
+- les contrats explicites,
+- le stockage simple,
+- les formats ouverts,
+- les backends d'exécution interchangeables.
 
-## 18. The system should remain understandable
+## 18. Le système doit rester compréhensible
 
-Agentic engineering can easily become a stack of agents managing agents that invoke skills that spawn more agents.
+L'ingénierie agentique devient vite un empilement d'agents qui pilotent des agents qui invoquent des skills qui lancent d'autres agents.
 
-Agentic Suite should resist unnecessary indirection.
+Agentic Suite doit résister aux indirections inutiles.
 
-A developer should be able to answer:
+Un développeur doit pouvoir répondre à :
 
-- Which workflow is running?
-- Which state is active?
-- Which role is responsible?
-- Which skills are being used?
-- Why can the workflow advance?
-- What artifacts were produced?
+- Quel workflow tourne ?
+- Quel état est actif ?
+- Quel rôle est responsable ?
+- Quelles skills sont utilisées ?
+- Pourquoi le workflow peut-il avancer ?
+- Quels artefacts ont été produits ?
 
-If those questions become difficult to answer, the architecture has become too complex.
+Si ces questions deviennent difficiles, l'architecture est devenue trop complexe.
 
-## Summary
+## Résumé
 
-Agentic Suite follows this hierarchy:
+Agentic Suite suit cette hiérarchie :
 
 ```text
-Human intent
+Intention humaine
     ↓
 Workflow
     ↓
-State
+État
     ↓
-Agent role
+Rôle d'agent
     ↓
 Skills
     ↓
-Provider / Model / Tools
+Fournisseur / Modèle / Outils
 ```
 
-The higher layers should remain stable.
+Les couches hautes doivent rester stables.
 
-The lower layers are allowed to change.
+Les couches basses ont le droit de changer.
 
-That separation is the foundation of the project.
+Cette séparation est le fondement du projet.
