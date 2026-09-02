@@ -1,6 +1,6 @@
 # ADR 0002: Exit Criteria and Failure Paths
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-09-02
 - **Supersedes:** none
 - **Refines:** ADR 0001 (Workflow First Architecture)
