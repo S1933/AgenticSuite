@@ -183,7 +183,7 @@ states:
 
       # --- assertions d'échec (C2) ---
 
-      - id: report_is_not_a_bug
+      - id: report_is_a_feature_request
         description: >
           Le comportement observé correspond au comportement attendu, ou le
           rapport décrit une demande de fonctionnalité, ou la cause est externe
@@ -222,7 +222,7 @@ states:
 
     on_failure:
       - to: reclassified
-        when: report_is_not_a_bug
+        when: report_is_a_feature_request
       - to: blocked
         when: reproduction_context_is_insufficient
 
