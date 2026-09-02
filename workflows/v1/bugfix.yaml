@@ -1,0 +1,569 @@
+# Workflow bugfix — version 1
+#
+# Conforme aux ADR 0001 à 0004.
+# Les conventions C1 à C5 utilisées ici sont documentées dans DECISIONS.md
+# et doivent être ratifiées par une ADR avant d'être considérées comme stables.
+
+id: bugfix
+version: 1
+
+initial_state: discovery        # C5
+max_transitions: 20
+
+# ---------------------------------------------------------------------------
+# Vocabulaires (ADR 0003 D1)
+# ---------------------------------------------------------------------------
+
+vocabularies:
+  impact_scope:
+    - single_user
+    - subset_of_users
+    - all_users
+    - unknown_extent
+
+  regression_history:
+    - always_broken
+    - recent_regression
+    - unknown_history
+
+  reproducibility:
+    - deterministic
+    - intermittent
+    - not_reproduced
+
+# ---------------------------------------------------------------------------
+# États d'échappement (ADR 0003 D5)
+# ---------------------------------------------------------------------------
+
+escape_states:
+  - id: blocked
+    terminal: false
+    description: >
+      La session ne peut pas avancer et attend un humain. Enregistre ce qui
+      manque et ce qui la débloquerait. Reprenable via session_resumed.
+
+  - id: abandoned
+    terminal: true
+    description: >
+      Aucun correctif n'a été livré. Enregistre pourquoi et ce qui a été appris.
+
+# ---------------------------------------------------------------------------
+# Déclencheurs d'escalade (ADR 0003 D7)
+# ---------------------------------------------------------------------------
+
+escalate_when:
+  - id: irreversible_action
+    nature: assertion
+    description: L'action suivante est irréversible ou destructrice.
+
+  - id: security_relevant_change
+    nature: assertion
+    description: La modification touche à la sécurité.
+
+  - id: human_decision_required
+    nature: assertion
+    description: >
+      Une décision produit, architecture ou métier relève de l'humain.
+
+  - id: context_contradiction
+    nature: assertion
+    description: >
+      Le contexte collecté contient une contradiction non résolue.
+
+# ---------------------------------------------------------------------------
+# États
+# ---------------------------------------------------------------------------
+
+states:
+
+  # -------------------------------------------------------------------------
+  - id: discovery
+    role: actor
+    evaluated_by: evaluator       # C3
+    max_attempts: 2               # revisitable depuis investigation (ADR 0002 §6)
+
+    description: >
+      L'agent interroge l'utilisateur une question à la fois. La question
+      suivante dépend des réponses précédentes. L'objectif est de construire
+      assez de contexte pour investiguer sans deviner.
+
+    context_fields:
+      - id: original_report
+        type: text
+        required: true
+        description: >
+          Le rapport initial tel que reçu, avant toute reformulation.
+          Conservé brut pour permettre de détecter les glissements de sens.
+
+      - id: observed_behavior
+        type: text
+        required: true
+        description: Ce que le système fait réellement.
+
+      - id: expected_behavior
+        type: text
+        required: true
+        description: >
+          Ce que le système devrait faire, et sur quelle base (spécification,
+          documentation, convention, attente de l'utilisateur).
+
+      - id: reproduction_steps
+        type: list
+        required: true
+        description: >
+          Séquence minimale d'actions menant au comportement observé.
+
+      - id: reproducibility
+        type: enum
+        vocabulary: reproducibility
+        required: true
+        description: Nature de la reproduction obtenue.
+
+      - id: affected_environments
+        type: list
+        required: true
+        description: >
+          Environnements où le comportement est observé, et si possible ceux
+          où il ne l'est pas.
+
+      - id: impact_scope
+        type: enum
+        vocabulary: impact_scope
+        required: true
+        description: Étendue de l'impact constaté.
+
+      - id: regression_history
+        type: enum
+        vocabulary: regression_history
+        required: true
+        description: >
+          Le comportement a-t-il déjà fonctionné, et si oui jusqu'à quand.
+
+      - id: relevant_logs
+        type: text
+        required: false
+        description: Traces, messages d'erreur, sorties pertinentes.
+
+      - id: suspected_code_areas
+        type: list
+        required: false
+        description: Zones de code suspectées par l'utilisateur.
+
+      - id: known_constraints
+        type: text
+        required: false
+        description: >
+          Contraintes connues qui limitent les corrections acceptables.
+
+    checks:
+      - name: discovery_context_present
+        type: context_fields_present
+        fields:
+          - original_report
+          - observed_behavior
+          - expected_behavior
+          - reproduction_steps
+          - reproducibility
+          - affected_environments
+          - impact_scope
+          - regression_history
+        max_unknown: 2
+
+    assertions:
+      - id: context_is_sufficient_to_investigate
+        description: >
+          Le contexte collecté permet de commencer l'investigation sans
+          deviner. Les inconnues restantes sont documentées et non bloquantes.
+        evidence_from:
+          - checks.discovery_context_present
+          - context.observed_behavior
+          - context.expected_behavior
+          - context.reproduction_steps
+          - artifacts.discovery_notes
+
+      # --- assertions d'échec (C2) ---
+
+      - id: report_is_not_a_bug
+        description: >
+          Le comportement observé correspond au comportement attendu, ou le
+          rapport décrit une demande de fonctionnalité, ou la cause est externe
+          au système.
+        evidence_from:
+          - context.original_report
+          - context.expected_behavior
+          - context.observed_behavior
+          - artifacts.discovery_notes
+
+      - id: reproduction_context_is_insufficient
+        description: >
+          Le bug n'est pas reproductible et le contexte manquant ne peut pas
+          être obtenu dans cette session.
+        evidence_from:
+          - checks.discovery_context_present
+          - context.reproducibility
+          - context.reproduction_steps
+
+    produces:
+      - id: discovery_notes
+        kind: note
+        required: true
+        description: >
+          Journal de l'entretien : questions posées, réponses, champs laissés
+          inconnus avec leur raison.
+
+      - id: reproduction_record
+        kind: repro
+        required: false
+        description: >
+          Reproduction établie et vérifiée. Absente si reproducibility vaut
+          not_reproduced.
+
+    next: investigation
+
+    on_failure:
+      - to: reclassified
+        when: report_is_not_a_bug
+      - to: blocked
+        when: reproduction_context_is_insufficient
+
+  # -------------------------------------------------------------------------
+  - id: investigation
+    role: actor
+    evaluated_by: evaluator       # C3
+    max_attempts: 2               # revisitable depuis validation (ADR 0002 §6)
+
+    description: >
+      L'agent examine les preuves disponibles et le code avant de proposer un
+      correctif. La sortie contient un diagnostic concret ou une incertitude
+      explicitement documentée.
+
+    context_fields:
+      - id: evidence_examined
+        type: list
+        required: true
+        description: >
+          Fichiers, traces, commits et zones de code effectivement examinés.
+
+      - id: root_cause_hypothesis
+        type: text
+        required: true
+        description: >
+          La cause racine identifiée, ou l'énoncé explicite qu'aucune cause
+          racine n'a pu être établie.
+
+      - id: confidence_rationale
+        type: text
+        required: true
+        description: >
+          Ce qui soutient l'hypothèse et ce qui la fragilise. Une hypothèse
+          sans contre-argument examiné est incomplète.
+
+      - id: ruled_out_hypotheses
+        type: list
+        required: false
+        description: Hypothèses écartées et raison de leur rejet.
+
+    checks:
+      - name: investigation_context_present
+        type: context_fields_present
+        fields:
+          - evidence_examined
+          - root_cause_hypothesis
+          - confidence_rationale
+        max_unknown: 0
+
+      - name: diagnosis_recorded
+        type: artifact_exists
+        id: diagnosis
+
+    assertions:
+      - id: root_cause_is_identified
+        description: >
+          Une cause racine plausible est identifiée et rattachée au
+          comportement observé par une chaîne d'explication vérifiable.
+        evidence_from:
+          - checks.investigation_context_present
+          - checks.diagnosis_recorded
+          - artifacts.diagnosis
+          - context.root_cause_hypothesis
+          - context.confidence_rationale
+
+      # --- assertions d'échec (C2) ---
+
+      - id: required_context_is_missing
+        description: >
+          Les preuves examinées montrent qu'un champ de contexte collecté en
+          discovery est absent, faux ou insuffisant pour poursuivre.
+        evidence_from:
+          - context.evidence_examined
+          - artifacts.diagnosis
+          - context.observed_behavior
+
+      - id: no_root_cause_found
+        description: >
+          Le budget d'investigation est épuisé sans cause racine plausible, et
+          la poursuite exige une décision ou un accès humain.
+        evidence_from:
+          - context.evidence_examined
+          - context.confidence_rationale
+          - artifacts.diagnosis
+
+    produces:
+      - id: diagnosis
+        kind: diagnosis
+        required: true
+        description: >
+          Diagnostic concret, ou incertitude documentée avec ce qui reste à
+          établir et pourquoi ça n'a pas pu l'être.
+
+    next: fix
+
+    on_failure:
+      - to: discovery
+        when: required_context_is_missing
+      - to: blocked
+        when: no_root_cause_found
+
+  # -------------------------------------------------------------------------
+  - id: fix
+    role: actor
+    evaluated_by: evaluator       # obligatoire — ADR 0003 D9
+    max_attempts: 2               # revisitable depuis validation
+
+    description: >
+      Le rôle d'implémentation effectue le plus petit changement justifié qui
+      traite la cause diagnostiquée.
+
+    context_fields:
+      - id: change_rationale
+        type: text
+        required: true
+        description: >
+          En quoi le changement traite la cause diagnostiquée, et non le
+          symptôme observé.
+
+      - id: change_scope
+        type: list
+        required: true
+        description: Fichiers et fonctions modifiés.
+
+      - id: side_effects_considered
+        type: text
+        required: true
+        description: >
+          Effets de bord envisagés, et pourquoi ils sont acceptables ou
+          écartés.
+
+    checks:
+      - name: fix_context_present
+        type: context_fields_present
+        fields:
+          - change_rationale
+          - change_scope
+          - side_effects_considered
+        max_unknown: 0
+
+      - name: patch_recorded
+        type: artifact_exists
+        id: patch
+
+    assertions:
+      - id: change_addresses_diagnosed_cause
+        description: >
+          Le changement traite la cause enregistrée dans le diagnostic, pas
+          une autre cause apparue en cours d'implémentation.
+        evidence_from:
+          - checks.patch_recorded
+          - artifacts.diagnosis
+          - artifacts.patch
+          - context.change_rationale
+
+      - id: change_is_minimal_and_justified
+        description: >
+          Aucune modification du patch n'est étrangère à la cause
+          diagnostiquée.
+        evidence_from:
+          - checks.fix_context_present
+          - artifacts.patch
+          - context.change_scope
+          - context.side_effects_considered
+
+      # --- assertions d'échec (C2) ---
+
+      - id: implementation_invalidates_diagnosis
+        description: >
+          L'implémentation a mis en évidence que la cause diagnostiquée est
+          fausse ou incomplète.
+        evidence_from:
+          - artifacts.diagnosis
+          - artifacts.patch
+          - context.change_rationale
+
+      - id: fix_cannot_be_implemented
+        description: >
+          Le correctif exige une décision humaine, un accès indisponible, ou
+          une modification hors du périmètre acceptable.
+        evidence_from:
+          - artifacts.diagnosis
+          - context.change_scope
+          - context.known_constraints
+
+    produces:
+      - id: patch
+        kind: patch
+        required: true
+        description: Le changement effectué, sous forme de diff.
+
+      - id: fix_decision
+        kind: decision
+        required: false
+        description: >
+          Arbitrage consigné lorsque plusieurs corrections étaient
+          défendables.
+
+    next: validation
+
+    on_failure:
+      - to: investigation
+        when: implementation_invalidates_diagnosis
+      - to: blocked
+        when: fix_cannot_be_implemented
+
+  # -------------------------------------------------------------------------
+  - id: validation
+    role: actor
+    evaluated_by: evaluator       # C3
+    max_attempts: 2
+
+    description: >
+      Le workflow vérifie le correctif avant de déclarer la complétion.
+      Les command_ref sont résolus par la configuration (ADR 0005, à venir) ;
+      tant qu'elle n'existe pas, cet état lève « command_ref non résolu ».
+
+    context_fields:
+      - id: validation_scope
+        type: text
+        required: true
+        description: >
+          Ce qui a été vérifié, et ce qui ne l'a pas été.
+
+      - id: manual_verification_notes
+        type: text
+        required: true
+        description: >
+          Vérification manuelle du comportement d'origine sur la reproduction
+          enregistrée.
+
+      - id: unverified_areas
+        type: text
+        required: false
+        description: >
+          Zones potentiellement affectées et non couvertes par la validation.
+
+    checks:
+      - name: validation_context_present
+        type: context_fields_present
+        fields:
+          - validation_scope
+          - manual_verification_notes
+        max_unknown: 0
+
+      - name: unit_tests_pass
+        type: command_exit_zero
+        command_ref: run_tests
+
+      - name: lint_passes
+        type: command_exit_zero
+        command_ref: run_lint
+
+      - name: test_result_recorded
+        type: artifact_exists
+        id: test_result
+
+    assertions:
+      - id: regression_is_verified
+        description: >
+          Le comportement d'origine ne se reproduit plus, et aucune régression
+          n'est apparue sur le périmètre couvert.
+        evidence_from:
+          - checks.unit_tests_pass
+          - checks.test_result_recorded
+          - artifacts.command_output_unit_tests_pass    # C4
+          - artifacts.test_result
+          - context.manual_verification_notes
+
+      - id: completion_checks_pass
+        description: >
+          Les vérifications de complétion passent et le périmètre non vérifié
+          est explicitement documenté.
+        evidence_from:
+          - checks.lint_passes
+          - checks.validation_context_present
+          - artifacts.command_output_lint_passes        # C4
+          - artifacts.patch
+
+      # --- assertions d'échec (C2) ---
+
+      - id: diagnosis_is_invalidated
+        description: >
+          Les résultats de validation contredisent la cause diagnostiquée.
+          Reprendre au correctif ne servirait à rien.
+        evidence_from:
+          - artifacts.test_result
+          - artifacts.diagnosis
+          - checks.unit_tests_pass
+
+      - id: fix_is_incorrect_but_diagnosis_holds
+        description: >
+          La cause diagnostiquée reste valide, mais l'implémentation ne la
+          traite pas correctement.
+        evidence_from:
+          - artifacts.test_result
+          - artifacts.patch
+          - artifacts.diagnosis
+
+      - id: validation_cannot_be_completed
+        description: >
+          La validation ne peut pas être exécutée : environnement
+          indisponible, commande non résolue, ou reproduction perdue.
+        evidence_from:
+          - context.validation_scope
+          - checks.unit_tests_pass
+          - artifacts.reproduction_record
+
+    produces:
+      - id: test_result
+        kind: test_result
+        required: true
+        description: >
+          Résultat consolidé de la validation, y compris ce qui n'a pas pu
+          être exécuté.
+
+      - id: validation_notes
+        kind: note
+        required: false
+        description: Observations de validation non couvertes par les tests.
+
+    next: done
+
+    on_failure:
+      - to: investigation
+        when: diagnosis_is_invalidated
+      - to: fix
+        when: fix_is_incorrect_but_diagnosis_holds
+      - to: blocked
+        when: validation_cannot_be_completed
+
+  # -------------------------------------------------------------------------
+  - id: done
+    terminal: true
+    description: >
+      Le workflow enregistre le résultat final et les artefacts produits.
+
+  # -------------------------------------------------------------------------
+  - id: reclassified
+    terminal: true
+    description: >
+      La découverte a conclu que le rapport n'est pas un bug : comportement
+      attendu, demande de fonctionnalité, ou cause externe. Atteignable
+      uniquement depuis discovery (ADR 0003 D5).
