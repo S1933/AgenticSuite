@@ -1,0 +1,37 @@
+# Local workflow state
+# Sessions are per-machine execution state, not shared project content.
+sessions/
+.agentic/
+*.session.json
+
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+config/local.*
+.claude/settings.local.json
+
+# Logs and scratch
+*.log
+logs/
+tmp/
+scratch/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Runtime artifacts (language not decided yet, kept generic)
+node_modules/
+dist/
+build/
+__pycache__/
+*.py[cod]
+.venv/
+venv/
