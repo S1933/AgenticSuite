@@ -6,7 +6,7 @@ Agentic Suite est un système de workflows déclaratifs pour travailler avec des
 
 C'est d'abord un setup d'ingénierie personnel, gardé assez générique pour être cloné et adapté.
 
-**Statut : phase de conception. Pas encore de runtime.** Le premier jalon est d'exécuter un workflow `bugfix` déclaratif sur du travail réel, de la découverte à une complétion validée.
+**Phase actuelle : Phase 1 — Fondations.** Toute la documentation architecturale est écrite et ratifiée. Le premier jalon — exécuter un workflow `bugfix` déclaratif sur du travail réel, de la découverte à une complétion validée — n'est pas atteint. Voir la feuille de route plus bas.
 
 ## Pourquoi
 
@@ -58,57 +58,72 @@ Tout état → Abandoned      aucun correctif livré
 - **Validation** — le correctif est vérifié avant complétion, en réutilisant les skills de qualité et de livraison existantes.
 - **Done** — le résultat et les artefacts sont enregistrés.
 
+Une définition complète et lintée de ce workflow vit dans [`workflows/v1/bugfix.yaml`](workflows/v1/bugfix.yaml). Les conventions utilisées par cette définition et qui attendent d'être ratifiées sont documentées dans [`workflows/v1/DECISIONS.md`](workflows/v1/DECISIONS.md).
+
 Les conditions qui autorisent un état à être quitté, et ce qui se passe quand elles ne peuvent pas l'être, sont définies dans l'[ADR 0002](docs/adr/0002-exit-criteria-and-failure-paths.md).
 
 ## Périmètre de la v0
 
-Inclus : un workflow (`bugfix`), définition déclarative en YAML, identité de session persistante, états explicites, transitions sous contrat, une seule session active à la fois, intégration avec les skills existantes.
+**Inclus :** un workflow (`bugfix`), définition déclarative en YAML, identité de session persistante, états explicites, transitions sous contrat, une seule session active à la fois, intégration avec les skills existantes, linter des workflows.
 
-Exclus : appels d'un workflow à un autre, arbres manager/worker, flottes d'agents parallèles, benchmark de modèles, ordonnancement, exécution distribuée, application graphique.
+**Exclus :** appels d'un workflow à un autre, arbres manager/worker, flottes d'agents parallèles, benchmark de modèles, ordonnancement, exécution distribuée, application graphique, optimisation automatique de fournisseur, hiérarchies manager/worker.
 
-Ces éléments ne seront ajoutés que si l'usage réel en démontre le besoin.
+Ces éléments ne seront ajoutés que si l'usage réel en démontre le besoin (cf. principe 16 de la philosophie).
 
 ## Interface
 
-L'interface visée présente une liste de workflows à démarrer ou reprendre, plutôt que des commandes de bas niveau. La première implémentation sera probablement une CLI, mais le modèle de workflow ne doit pas dépendre de l'interface.
+L'interface visée présente une liste de workflows à démarrer ou reprendre, plutôt que des commandes de bas niveau. La première implémentation est une CLI, mais le modèle de workflow ne dépend pas de l'interface.
 
-## Arborescence proposée
+```bash
+agentic lint workflows/v1/bugfix.yaml    # valide un workflow
+agentic run bugfix                        # démarre une session (Phase 2)
+agentic resume <session_id>               # reprend une session bloquée
+agentic log <session_id>                  # affiche le journal d'une session
+```
+
+## Arborescence actuelle
 
 ```
 .
 ├── README.md
 ├── LICENSE
+├── pyproject.toml                  # packaging Python, entry point `agentic`
 ├── docs/
 │   ├── concepts.md
 │   ├── philosophy.md
-│   └── adr/
+│   └── adr/                        # 7 ADR + 1 fichier de précisions
 ├── workflows/
-├── agents/
-├── providers/
-├── commands/
-├── hooks/
-└── config/
+│   └── v1/
+│       ├── bugfix.yaml             # workflow déclaratif, lint-clean
+│       └── DECISIONS.md            # conventions provisoires, ratifiées par ADR
+├── src/agentic_suite/              # linter des workflows (Lot 0)
+├── tests/                          # 95 tests (lint, vérification, refus, e2e)
+└── .github/workflows/ci.yml        # CI matrix Python 3.11-3.13
 ```
-
-Un point de départ, pas un contrat figé. Seul `docs/` existe aujourd'hui.
 
 ## Feuille de route
 
-**Phase 1 — Fondations.** Philosophie ✅ · architecture centrée workflow ✅ · critères de sortie et chemins d'échec ✅ · première définition `bugfix` ⬜ · schéma minimal ⬜
+**Phase 1 — Fondations.** Philosophie ✅ · architecture centrée workflow ✅ · critères de sortie et chemins d'échec ✅ · schéma déclaratif ✅ · persistance des sessions ✅ · première définition `bugfix` ✅ · linter ✅
 
-**Phase 2 — Runtime minimal.** Charger un workflow YAML, démarrer une session, persister l'état, avancer entre les états, interrompre et reprendre.
+**Phase 2 — Runtime minimal.** Charger un workflow YAML, démarrer une session, persister l'état, avancer entre les états, interrompre et reprendre. ⬜
 
-**Phase 3 — Intégration des agents.** Mapper les rôles à des agents concrets, exposer les Skills comme primitives, introduire la configuration des fournisseurs.
+**Phase 3 — Intégration des agents.** Mapper les rôles à des agents concrets, exposer les Skills comme primitives, introduire la configuration des fournisseurs. ⬜
 
-**Phase 4 — Itération sur le réel.** Utiliser `bugfix` sur de vraies tâches. N'ajouter des abstractions que lorsqu'un usage répété les justifie.
+**Phase 4 — Itération sur le réel.** Utiliser `bugfix` sur de vraies tâches. N'ajouter des abstractions que lorsqu'un usage répété les justifie. ⬜
 
 **Plus tard.** Workflows feature, research, review et release ; exécution parallèle par worktree ; agents manager/worker ; visualisation de l'état des workflows ; exécution distante.
+
+## Plan d'exécution
+
+Le travail vers la Phase 4 est découpé en sept lots — `Lot 0` à `Lot 7` — dans le document de travail [`docs/planning/plan-execution.md`](docs/planning/plan-execution.md). Les lots sont conçus pour que le workflow précède le runtime : aucune abstraction n'est introduite avant que trois sessions réelles ne l'aient réclamée.
 
 ## Documentation
 
 - [`docs/concepts.md`](docs/concepts.md) — vocabulaire
 - [`docs/philosophy.md`](docs/philosophy.md) — principes et raisonnement
-- [`docs/adr/`](docs/adr/) — décisions d'architecture
+- [`docs/adr/`](docs/adr/) — décisions d'architecture (ADR 0001 à 0007, plus un fichier de précisions)
+- [`workflows/v1/bugfix.yaml`](workflows/v1/bugfix.yaml) — première définition complète du workflow bugfix
+- [`workflows/v1/DECISIONS.md`](workflows/v1/DECISIONS.md) — conventions provisoires et leur statut de ratification
 
 ## Licence
 
