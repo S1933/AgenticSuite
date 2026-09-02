@@ -8,11 +8,12 @@ Numérotées, immuables une fois acceptées. Une décision qui change est rempla
 | [0002](0002-exit-criteria-and-failure-paths.md) | Critères de sortie et chemins d'échec | Acceptée |
 | [0003](0003-workflow-schema.md) | Schéma déclaratif de workflow | Acceptée |
 | [0004](0004-session-persistence.md) | Persistance des sessions | Acceptée |
+| [0007](0007-assertion-polarity.md) | Polarité des assertions de transition | Acceptée |
+| [0003-précisions](0003-precisions-evaluator-initial-state-context-scope.md) | Évaluateur explicite, état initial, portée des références | Acceptée |
 
 ## Prévues
 - 0005 — configuration des rôles, capacités et fournisseurs
 - 0006 — contrat d'invocation des skills
-- 0007 — polarité des preuves
 - 0008 — sécurité opérationnelle (éventuelle)
 
 ## Modèle
