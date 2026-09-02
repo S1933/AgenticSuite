@@ -1,2 +1,0 @@
-[console_scripts]
-agentic = agentic_suite.cli:main
