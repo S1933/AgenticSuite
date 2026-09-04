@@ -119,9 +119,22 @@ Le travail vers la Phase 4 est découpé en sept lots — `Lot 0` à `Lot 7` —
 
 ## Documentation
 
-- [`docs/concepts.md`](docs/concepts.md) — vocabulaire
+**Conception — pourquoi**
+
 - [`docs/philosophy.md`](docs/philosophy.md) — principes et raisonnement
+- [`docs/concepts.md`](docs/concepts.md) — vocabulaire
 - [`docs/adr/`](docs/adr/) — décisions d'architecture (ADR 0001 à 0007, plus un fichier de précisions)
+
+**Technique — comment**
+
+- [`docs/architecture.md`](docs/architecture.md) — modules, frontières, ce qui n'existe pas encore
+- [`docs/development.md`](docs/development.md) — installation, tests, ajout d'une règle de lint
+- [`docs/reference/workflow-schema.md`](docs/reference/workflow-schema.md) — référence complète du schéma YAML
+- [`docs/reference/lint-rules.md`](docs/reference/lint-rules.md) — catalogue des 18 règles de lint
+- [`docs/reference/cli.md`](docs/reference/cli.md) — commandes, codes de sortie, usage en CI
+
+**Workflow de référence**
+
 - [`workflows/v1/bugfix.yaml`](workflows/v1/bugfix.yaml) — première définition complète du workflow bugfix
 - [`workflows/v1/DECISIONS.md`](workflows/v1/DECISIONS.md) — conventions provisoires et leur statut de ratification
 
