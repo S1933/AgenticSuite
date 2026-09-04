@@ -194,17 +194,34 @@ def run_attempt(
     )
 
     # 2. evaluator judges assertions + escalation triggers (distinct evaluator)
+    #    Criteria carry the full contract so the judge never infers from ids:
+    #    description, evidence_from, and C2 polarity (nature = failure for
+    #    assertions referenced by on_failure.when — ADR 0002 conventions).
+    failure_ids = {rule.get("when") for rule in (state.get("on_failure") or [])}
     criteria: list[dict] = []
     for assertion in state.get("assertions") or []:
-        criteria.append({"id": assertion["id"], "kind": "assertion"})
+        criteria.append({
+            "id": assertion["id"],
+            "kind": "assertion",
+            "nature": "failure" if assertion["id"] in failure_ids else "nominal",
+            "description": str(assertion.get("description", "")),
+            "evidence_from": [r for r in assertion.get("evidence_from") or []
+                              if isinstance(r, str)],
+        })
     for trigger in workflow.get("escalate_when") or []:
-        criteria.append({"id": trigger["id"], "kind": "escalation"})
+        criteria.append({
+            "id": trigger["id"],
+            "kind": "escalation",
+            "nature": "escalation",
+            "description": str(trigger.get("description", "")),
+            "evidence_from": [],
+        })
 
     eval_result = run_evaluator(
         session_path=session_path,
         criteria=criteria,
         command=evaluator_cmd,
-        timeout_s=60,
+        timeout_s=300,  # covers judge retries (3 x LLM call) without killing them
         env=evaluator_env,
         session_dir=session_dir,
     ) if criteria else None

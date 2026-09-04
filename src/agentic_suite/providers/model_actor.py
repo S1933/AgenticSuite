@@ -181,6 +181,9 @@ def act(
         except (ActorError, RuntimeError) as exc:
             last_error = exc
             time.sleep(0.5)
+        except Exception as exc:  # httpx.ReadTimeout / HTTPStatusError -> retry
+            last_error = exc
+            time.sleep(1.0)
     raise ActorError(f"actor failed after {_RETRIES + 1} attempts: {last_error}")
 
 

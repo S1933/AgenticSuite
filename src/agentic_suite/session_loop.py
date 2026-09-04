@@ -42,7 +42,7 @@ def _run_actor(
     context: dict,
     workflow_context: dict,
     actor_env: Optional[dict] = None,
-    timeout_s: float = 120.0,
+    timeout_s: float = 300.0,   # covers actor retries (3 x LLM call)
     project_root: Optional[Path] = None,
 ) -> dict:
     """Call the actor subprocess; returns {"context": ..., "artifacts": ...}."""

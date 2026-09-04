@@ -195,6 +195,32 @@ Sept lots. Chacun porte des tâches, une définition de fin dans le vocabulaire 
   d'échec C2 envoie une session saine en blocked/discovery** — c'est le refus le plus
   coûteux à tort. À mesurer sur les sessions suivantes (variance) avant toute
   correction du prompt.
+- **D5.6 — Cause racine du faux positif C2 : le juge ne recevait que les ids des
+  critères.** `runner.py` envoyait `{"id", "kind"}` — ni description, ni
+  `evidence_from`, ni la polarité C2. Le LLM inférait du nom de l'assertion
+  (`required_context_is_missing…`) au lieu de constater les faits. Correction :
+  chaque critère porte désormais le contrat complet (`description`,
+  `evidence_from`, `nature: nominal|failure|escalation` — la nature *failure* est
+  dérivée structurellement des `on_failure[].when`, pas d'un commentaire) et le
+  prompt impose une **preuve asymétrique** : une assertion d'échec ne passe que sur
+  constat factuel direct dans l'enregistrement, jamais par plausibilité du nom.
+  Test verrouillé : `tests/session/test_C2_polarity_contract.py`. Effet secondaire
+  à surveiller : juge plus strict, risque de faux négatifs sur les nominales.
+- **D5.7 — Timeouts réseau tués par le subprocess.** `run_evaluator(timeout_s=60)`
+  tuait le juge avant ses 3 retries LLM (120 s chacun) → `{"_error"}` → `fail` sur
+  tout → blocked. Les flocons `httpx.ReadTimeout` n'étaient pas retentés (classe
+  `Exception`, hors du catch). Corrections : appel LLM 90 s × 3 retries + catch
+  large + subprocess 300 s (évaluateur et acteur). Sans ce fix, la correction C2
+  était inmesurable.
+- **D5.8 — Correction C2 validée par session réelle (bugfix-dc3b8a49).** Avant la
+  correction (sessions #1/#2) : blocked sur investigation, `required_context_is_missing`
+  jugé pass à tort. Après : **discovery → investigation → fix**, avec des verdicts
+  justes : `context_is_sufficient_to_investigate` pass, `required_context_is_missing`
+  fail, `no_root_cause_found` fail, `root_cause_is_identified` pass, escalades fail.
+  La session a atteint l'état fix — du jamais vu jusqu'ici. Le blockage final est un
+  **échec réseau de l'acteur** (`evaluator: "actor"` dans le journal, 3 ReadTimeout en
+  produisant le patch), pas un verdict du juge. Le juge corrigé est maintenant
+  mesurable et ne bloque plus les sessions saines.
 
 **Risque majeur :** choisir des bugs faciles pour faire passer les scénarios. Les bugs viennent du travail réel en cours, pas d'une liste établie pour le plan.
 

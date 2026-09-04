@@ -57,9 +57,18 @@ Rules:
   worker, not on you, to infer.
 - "evidence" must cite an identifier that exists in the session record
   (context.<field>, artifacts.<id>, checks.<name>). Never invent one.
+- **Asymmetric proof (C2 polarity)**: a criterion with
+  "nature": "failure" describes an adverse condition that, when TRUE,
+  redirects the session (e.g. missing context, wrong diagnosis). For such
+  a criterion, "pass" is allowed ONLY on a direct, explicit statement in
+  the session record — a field literally marked absent, an artifact that
+  says "no root cause found". Absence of proof is "fail": do NOT pass a
+  failure criterion because its ID sounds plausible or because positive
+  evidence is thin. Nominal criteria ("nature": "nominal") and escalations
+  keep the standard rule above.
 - No prose outside the JSON object.
 
-CRITERIA TO JUDGE:
+CRITERIA TO JUDGE (id, kind, nature, description, evidence_from):
 {criteria}
 """
 
@@ -102,7 +111,7 @@ def _api_key(config: dict) -> str:
 
 
 def _call_llm(endpoint: str, key: str, model: str, prompt: str,
-              timeout_s: float = 120.0) -> str:
+              timeout_s: float = 90.0) -> str:
     import httpx
 
     headers = {
@@ -201,9 +210,12 @@ def evaluate(
                 cleaned[cid] = {"verdict": value,
                                 "evidence": str(verdict.get("evidence", ""))}
             return {"verdicts": cleaned}
-        except (ValueError, RuntimeError) as exc:  # malformed parse / HTTP flake -> retry
+        except (ValueError, RuntimeError) as exc:  # malformed parse -> retry
             last_error = exc
             time.sleep(0.5)
+        except Exception as exc:  # httpx.ReadTimeout / HTTPStatusError -> retry
+            last_error = exc
+            time.sleep(1.0)
     raise RuntimeError(f"judge failed after {_RETRIES + 1} attempts: {last_error}")
 
 
