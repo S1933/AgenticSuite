@@ -43,6 +43,9 @@ POLARITY_NEGATION_RE = re.compile(
     r"^.*_(is_not|not_|does_not)_.*$"
 )
 
+# ADR 0006 D1: skill id form (snake_case, mirror of command_ref).
+SKILL_ID_RE = re.compile(r"^[a-z][a-z0-9_]*$")
+
 
 # ----- Helpers ----------------------------------------------------------------
 
@@ -452,6 +455,59 @@ def rule_R21_context_evidence_attainable(workflow: dict):
                     )
 
 
+def rule_R22_skill_declaration(workflow: dict):
+    """ADR 0006 D1: skills declared per state, {id, use_when?} entries.
+
+    - skills must be a list of mappings with a snake_case `id`
+    - `use_when` is optional free prose (a string)
+    - no duplicate ids within a state
+    """
+    seen: set[str] = set()
+    for state_id, state in _iter_states(workflow):
+        skills = state.get("skills")
+        if skills is None:
+            continue
+        if not isinstance(skills, list):
+            yield error(
+                "R22",
+                f"states.{state_id}.skills",
+                "skills must be a list of {id, use_when?} mappings",
+            )
+            continue
+        seen.clear()
+        for i, entry in enumerate(skills):
+            if not isinstance(entry, dict):
+                yield error(
+                    "R22",
+                    f"states.{state_id}.skills[{i}]",
+                    "skill entry must be a mapping with an 'id'",
+                )
+                continue
+            sid = entry.get("id")
+            if not isinstance(sid, str) or not SKILL_ID_RE.match(sid):
+                yield error(
+                    "R22",
+                    f"states.{state_id}.skills[{i}].id",
+                    f"skill id must match [a-z][a-z0-9_]* (got {sid!r})",
+                )
+                continue
+            if sid in seen:
+                yield error(
+                    "R22",
+                    f"states.{state_id}.skills[{i}].id",
+                    f"duplicate skill id '{sid}' in state",
+                )
+                continue
+            seen.add(sid)
+            uw = entry.get("use_when")
+            if uw is not None and not isinstance(uw, str):
+                yield error(
+                    "R22",
+                    f"states.{state_id}.skills[{i}].use_when",
+                    "use_when must be free prose (a string)",
+                )
+
+
 # ----- Rule registry ----------------------------------------------------------
 
 
@@ -474,4 +530,5 @@ ALL_RULES = [
     rule_R17_assertion_name_polarity,
     rule_R20_initial_state_required,
     rule_R21_context_evidence_attainable,
+    rule_R22_skill_declaration,
 ]

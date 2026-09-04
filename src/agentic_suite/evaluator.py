@@ -68,6 +68,7 @@ def run_evaluator(
     criteria: list[dict],
     command: list[str],
     timeout_s: float = 60.0,
+    env: dict[str, str] | None = None,
 ) -> EvaluationResult:
     """Run *command* against a copy of the session journal, in isolation.
 
@@ -79,6 +80,9 @@ def run_evaluator(
             evaluator reads the journal from argv; nothing else points at
             the real session.
         timeout_s: Hard kill after this many seconds.
+        env: Optional extra environment fused over the minimal evaluator
+            env (e.g. scripted mock verdicts in tests). Secrets in the
+            caller's env are still stripped by ``build_evaluator_env``.
 
     The subprocess cwd is a fresh scratch dir containing exactly one file:
     ``session.jsonl`` (a copy). The real session directory is not passed
@@ -92,10 +96,14 @@ def run_evaluator(
         # The command is a fixed argv list; the journal path is appended so
         # the evaluator locates its input without any env/cwd trickery.
         argv = list(command) + [str(journal_copy)]
+        sub_env = build_evaluator_env()
+        if env:
+            sub_env.update({k: v for k, v in env.items()
+                            if not any(b in k.upper() for b in _ENV_BLOCKLIST)})
         proc = subprocess.run(
             argv,
             cwd=str(scratch),
-            env=build_evaluator_env(),
+            env=sub_env,
             input=json.dumps(criteria),
             capture_output=True,
             text=True,

@@ -238,6 +238,49 @@ Un fournisseur ne peut servir un rôle que si ses capacités couvrent les
 capacités requises du rôle : `evaluator_cli` (lecture seule) ne peut pas
 tenir `actor` (`code_editing`, `tool_execution` requis).
 
+### `agentic_suite/skills.py` — invocation de skills (ADR 0006 D4/D5)
+
+L'invocation d'une skill est un bloc journal typé `skill_invoked`
+(`skill_id`, `state_id`, `role`, résumés ≤ 200 chars), chaîné par
+l'empreinte ADR 0004 comme n'importe quel bloc. Une skill ne peut pas
+écrire en session (D2) ; elle retourne du contenu à l'acteur.
+
+```python
+record_skill_invocation(journal_path, skill_id, state_id, role,
+                        input_summary, output_summary) -> dict
+undeclared_skill_ids(journal, declared_skills) -> list[str]  # warning D5
+```
+
+### `agentic_suite/engine.py` — machine à états pure (Lot 4a)
+
+`advance(ctx, verdict) -> Transition` sans I/O — le cœur décisionnel :
+escalade d'abord (D7), puis assertions d'échec dans l'ordre (C2), puis
+sortie nominale, puis retry/budget. `max_transitions` (D6) et
+`max_attempts` forcent `blocked` ; `session_resumed` ne consomme pas le
+budget (D8).
+
+```python
+advance({"workflow": wf, "state_id": s, "attempt": n,
+         "transitions_used": m}, verdict) -> Transition(kind, to, reason)
+```
+
+### `agentic_suite/runner.py` — orchestrateur (Lot 4b)
+
+`run_attempt` assemble tout : journal vérifié (D4) → état courant →
+checks déterministes (avec résolution `command_ref` ADR 0005) →
+évaluateur isolé (assertions + triggers d'escalade, D7/P4) → engine →
+persistance de la transition et des artefacts `command_output_*`.
+
+```python
+run_attempt(session_path, session_dir, workflow, evaluator_cmd,
+            evaluator_env=None, project_root=None, machine_home=None)
+            -> RunResult(transition, journal)
+```
+
+Le CLI (`agentic start|status|resume|log`) branche l'orchestrateur ; un
+évaluateur est injecté via `AGENTIC_EVALUATOR_CMD` (mock en CI) — le
+câblage depuis `providers.yaml` reste à faire.
+
 ### `agentic_suite/cli.py` — 68 lignes
 
 `argparse`, une sous-commande, trois codes de sortie. Voir la [référence CLI](reference/cli.md).

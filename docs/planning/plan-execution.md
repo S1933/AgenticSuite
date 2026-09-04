@@ -114,15 +114,35 @@ Sept lots. Chacun porte des tâches, une définition de fin dans le vocabulaire 
 
 **Risque :** dérive vers un système de plugins générique. Le principe 16 l'interdit.
 
-### Lot 3 — ADR 0006 : contrat d'invocation des skills ⬜
+### Lot 3 — ADR 0006 : contrat d'invocation des skills ✅
 
 **Intention :** rendre réelle la séparation Skills / Agentic Suite.
 
+**Réalisé :**
+
+- Règle de lint R22 (ADR 0006 D1) : `skills:` déclaré par état, format `{id: snake_case, use_when?: prose}`, id unique par état, refus des entrées non-mapping. 6 tests.
+- `src/agentic_suite/skills.py` : événement `skill_invoked` (D4) — bloc journal typé avec `skill_id`, `state_id`, `role`, `input_summary`/`output_summary` ≤ 200 chars, passé par la chaîne d'empreintes (ADR 0004) ; `undeclared_skill_ids` alimente le warning post-exécution D5 (l'invocation non déclarée est enregistrée, jamais refusée). 6 tests.
+
+**Découvertes significatives :** le warning D5 a besoin d'une couche de lecture du journal post-exécution (`undeclared_skill_ids`), pas d'un refus au moment de l'appel — cohérent avec la philosophie D5 « le runtime ne refuse pas, il signale l'écart après coup ».
+
 **Dépendances :** Lot 2.
 
-### Lot 4 — Boucle agent ⬜
+### Lot 4 — Boucle agent ✅
 
 **Intention :** arrêter de piloter le CLI à la main.
+
+**Réalisé :**
+
+- `src/agentic_suite/engine.py` : machine à états **pure** `advance(ctx, verdict) -> Transition`, sans I/O. Ordre d'évaluation ADR 0003 D5/D7 + C2 : escalade d'abord → assertions d'échec (ordre de déclaration) → sortie nominale (checks + assertions nominales toutes passées) → retry si `attempt < max_attempts`, sinon `blocked`. `max_transitions` force `blocked`. `insufficient_evidence` = échec. 12 tests, couverture complète de la table de transition.
+- `src/agentic_suite/runner.py` : orchestrateur `run_attempt` — charge et vérifie le journal (D4), détermine l'état courant, exécute les checks déterministes (contexte/artefact/commande avec résolution `command_ref` ADR 0005), délègue les assertions **et** les triggers d'escalade à l'évaluateur isolé (D7/P4), compose le verdict, appelle l'engine, persiste la transition + artefacts `command_output_*`. 7 tests avec évaluateur mock (jamais de vrai modèle en CI).
+- CLI étendu (Lot 4c) : `agentic start <workflow>`, `status <session>`, `resume <session> <state>`, `log <session>` — cycle complet ouvert → exécution → vérification d'intégrité → reprise depuis `blocked` (`session_resumed` ne consomme pas le budget). 6 tests e2e.
+- 35 nouveaux tests au total : 163 verts, lint bugfix 0/0.
+
+**Découvertes significatives :**
+
+- `run_evaluator` devait accepter un env d'appoint pour scriptable les verdicts du mock sans casser l'isolation (les clés bloquées restent filtrées).
+- Le fixture CLI a révélé que l'engine est sensible aux assertions d'échec par défaut : le mock doit les servir en `fail` par défaut, sinon tout état avec `on_failure` part en `blocked`.
+- Le CLI attend un évaluateur injecté via `AGENTIC_EVALUATOR_CMD` — le câblage réel du provider (depuis `providers.yaml`) reste pour l'ADR des fournisseurs côté runtime.
 
 **Dépendances :** Lots 1, 2, 3.
 
@@ -156,11 +176,9 @@ Sept lots. Chacun porte des tâches, une définition de fin dans le vocabulaire 
 ## Chemin critique
 
 ```
-Lot 0 (✅) → Lot 1 (✅) → Lot 2 (✅) → Lot 4 → Lot 5
-                              ↑
-                        Lot 3 (parallélisable avec la fin de Lot 2)
-                              ↓
-                          Lot 6 → Lot 7
+Lot 0 (✅) → Lot 1 (✅) → Lot 2 (✅) → Lot 3 (✅) → Lot 4 (✅) → Lot 5
+                                                          ↓
+                                                      Lot 6 → Lot 7
 ```
 
 ## Hors périmètre
