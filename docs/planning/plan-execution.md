@@ -142,7 +142,9 @@ Sept lots. Chacun porte des tâches, une définition de fin dans le vocabulaire 
 
 - `run_evaluator` devait accepter un env d'appoint pour scriptable les verdicts du mock sans casser l'isolation (les clés bloquées restent filtrées).
 - Le fixture CLI a révélé que l'engine est sensible aux assertions d'échec par défaut : le mock doit les servir en `fail` par défaut, sinon tout état avec `on_failure` part en `blocked`.
-- Le CLI attend un évaluateur injecté via `AGENTIC_EVALUATOR_CMD` — le câblage réel du provider (depuis `providers.yaml`) reste pour l'ADR des fournisseurs côté runtime.
+- Le CLI attend un évaluateur injecté via `AGENTIC_EVALUATOR_CMD` — le câblage réel du provider (depuis `providers.yaml`) a été fait après le lot : `src/agentic_suite/providers/model_evaluator.py` + config machine `~/.config/agentic/{providers.yaml,opencode-go.key}`.
+- **Smoke test réel validé** : une session `agentic start bugfix` avec l'évaluateur model (deepseek-v4-flash) a produit `retry -> discovery (attempt 1 of 2)` et le journal porte les 3 assertions de discovery jugées `insufficient_evidence` (contexte vide → charge de la preuve sur le worker, conforme ADR 0002). La CI n'appelle jamais un vrai modèle (5 tests mockés).
+- **Trou de versionnage corrigé** : `.gitignore` ignorait `.agentic/` en entier — `commands.yaml` du Lot 2 n'a jamais été commité. Exception ajoutée (`!.agentic/commands.yaml`) + `git add -f`.
 
 **Dépendances :** Lots 1, 2, 3.
 

@@ -3,6 +3,7 @@
 # pas du contenu de projet partagé.
 sessions/
 .agentic/
+!.agentic/commands.yaml          # command_ref projet — versionné (ADR 0005 D5)
 *.session.json
 
 # Secrets et configuration locale

@@ -278,8 +278,11 @@ run_attempt(session_path, session_dir, workflow, evaluator_cmd,
 ```
 
 Le CLI (`agentic start|status|resume|log`) branche l'orchestrateur ; un
-évaluateur est injecté via `AGENTIC_EVALUATOR_CMD` (mock en CI) — le
-câblage depuis `providers.yaml` reste à faire.
+évaluateur est injecté via `AGENTIC_EVALUATOR_CMD`. L'adapter réel :
+`providers/model_evaluator.py` (separate-process judge, clé lue depuis
+`~/.config/agentic/providers.yaml` — jamais par env, que l'isolation
+strippe). `providers/base.py` porte la résolution rôle → fournisseur ;
+`providers/__init__.py` ré-exporte pour la compat.
 
 ### `agentic_suite/cli.py` — 68 lignes
 

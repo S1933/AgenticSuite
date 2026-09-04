@@ -1,0 +1,20 @@
+# Project command definitions — ADR 0005 D5.
+#
+# This file is the PROJECT level of command_ref resolution; it wins over
+# the machine file (~/.config/agentic/commands.yaml). Only the commands
+# this project overrides need to appear here.
+#
+# Format: argv is mandatory (a list, never a shell string), no templates,
+# no substitution. For Agentic Suite itself, the checks resolve against
+# the repo's own test suite.
+
+commands:
+  run_tests:
+    argv: ["pytest", "-q", "--strict-markers"]
+    timeout_seconds: 300
+    cwd: .
+
+  run_lint:
+    argv: ["agentic", "lint", "workflows/v1/bugfix.yaml", "--strict"]
+    timeout_seconds: 60
+    cwd: .
