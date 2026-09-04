@@ -86,7 +86,7 @@ Sept lots. Chacun porte des tâches, une définition de fin dans le vocabulaire 
 
 **Risque :** les tâches 1.2 et 1.3 sont les plus lourdes. Sans elles, la qualification « workflow validé » n'existe pas.
 
-### Lot 2 — ADR 0005 : rôles, capacités, fournisseurs ⬜
+### Lot 2 — ADR 0005 : rôles, capacités, fournisseurs ✅
 
 **Intention :** remplacer les rôles implicites par la couche de résolution.
 
@@ -95,6 +95,20 @@ Sept lots. Chacun porte des tâches, une définition de fin dans le vocabulaire 
 1. Écrire `config/role_assignments.yaml`, `config/providers.yaml`.
 2. Résolution `command_ref` par projet (`<projet>/.agentic/commands.yaml`).
 3. Rejouer la session du Lot 1 avec deux fournisseurs distincts.
+
+**Réalisé :**
+
+- `src/agentic_suite/commands.py` : résolution `command_ref` (ADR 0005 D5) — hiérarchie projet `.agentic/commands.yaml` → machine `~/.config/agentic/commands.yaml`, le projet prime ; `argv` liste obligatoire, refus du format shell/template. Ref non résolu → `None` (échec à l'exécution, jamais à la lecture). 7 tests.
+- `src/agentic_suite/providers.py` : rôles fermés (`actor`, `evaluator`) et capacités implicites (D2) ; `providers.yaml` (D3) avec validation du `kind` fermé ; `role_assignments.yaml` (D4) non overridable par projet. Erreurs explicites : `RoleAssignmentMissing`, `ProviderLoadError`, `ProviderCapabilityError`. 6 tests.
+- `config/providers.yaml` + `config/role_assignments.yaml` : référence portable — `opencode_model` (kind model) pour `actor`, `evaluator_cli` (kind cli) pour `evaluator`, deux fournisseurs distincts (validation #2).
+- `.agentic/commands.yaml` : `run_tests` (`pytest --strict-markers`) et `run_lint` (`agentic lint --strict`) — le projet consomme ses propres commandes.
+- 4 tests e2e : résolution des deux rôles sur deux fournisseurs distincts, refus d'un `cli` read-only pour `actor`, résolution des refs projet, workflow sans nom de fournisseur (validation #3).
+
+**Découvertes significatives :**
+
+- La validation #3 (« aucun nom de fournisseur dans `workflows/` ») est testable directement par grep du workflow.
+- `evaluator_cli` (lecture seule) ne peut PAS servir `actor` par construction de capacités : c'est le garde-fou D3 qui empêche un évaluateur relâché de faire le travail de l'acteur.
+- Les fichiers `config/` du repo sont la référence portable ; le runtime lit `~/.config/agentic/` sur la machine — la copie réelle n'est pas encore installée (rien ne charge la config machine avant le Lot 4).
 
 **Dépendances :** Lot 1.
 
@@ -142,7 +156,7 @@ Sept lots. Chacun porte des tâches, une définition de fin dans le vocabulaire 
 ## Chemin critique
 
 ```
-Lot 0 (✅) → Lot 1 (✅) → Lot 2 → Lot 4 → Lot 5
+Lot 0 (✅) → Lot 1 (✅) → Lot 2 (✅) → Lot 4 → Lot 5
                               ↑
                         Lot 3 (parallélisable avec la fin de Lot 2)
                               ↓

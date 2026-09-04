@@ -1,0 +1,14 @@
+# Role → provider assignment — ADR 0005 D4.
+#
+# Machine-level configuration, read from ~/.config/agentic/role_assignments.yaml.
+# The copy in the repo is the portable reference.
+#
+# Rules:
+#   - Only actor and evaluator exist (closed set, ADR 0005 D1).
+#   - No project-level override: a workflow stays portable across projects
+#     precisely because resolution is machine-level.
+#   - Missing assignment => RoleAssignmentMissing at session load.
+
+role_assignments:
+  actor: opencode_model
+  evaluator: evaluator_cli

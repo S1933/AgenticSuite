@@ -206,6 +206,38 @@ conversation de travail, ce que D9 interdit. C'est le test demandé par
 l'ADR 0003 D9 (« le premier test de bout en bout de la Phase 4 vérifie cet
 invariant »), rendu exécutable dès maintenant avec l'évaluateur mock.
 
+### `agentic_suite/commands.py` — résolution `command_ref` (ADR 0005 D5)
+
+Hiérarchie projet → machine : `.agentic/commands.yaml` (projet) prime sur
+`~/.config/agentic/commands.yaml` (machine). Définition = liste `argv` —
+jamais une chaîne shell, jamais de template ni de substitution. Un ref non
+résolu retourne `None` : le check échoue à l'exécution
+(`command_ref_unresolved`), jamais à la lecture.
+
+```python
+resolve_command_ref(project_root, ref, machine_home=None) -> dict | None
+# -> {"argv": [...], "timeout_seconds": int, "cwd": str | None}
+```
+
+Définition présente mais malformée (pas d'`argv`, argv non-liste,
+`timeout_seconds` invalide) → `CommandRefError`.
+
+### `agentic_suite/providers.py` — rôles et fournisseurs (ADR 0005 D1-D4)
+
+Rôles fermés (`actor`, `evaluator`), capacités implicites figées (D2).
+Fournisseurs déclarés dans `config/providers.yaml` (machine), `kind` fermé
+(`model | cli | api`). La résolution rôle → fournisseur se fait via
+`role_assignments.yaml` (machine, non overridable par projet).
+
+```python
+resolve_role_provider(role, config_home) -> dict   # le provider résolu
+# errors: RoleAssignmentMissing | ProviderLoadError | ProviderCapabilityError
+```
+
+Un fournisseur ne peut servir un rôle que si ses capacités couvrent les
+capacités requises du rôle : `evaluator_cli` (lecture seule) ne peut pas
+tenir `actor` (`code_editing`, `tool_execution` requis).
+
 ### `agentic_suite/cli.py` — 68 lignes
 
 `argparse`, une sous-commande, trois codes de sortie. Voir la [référence CLI](reference/cli.md).

@@ -97,7 +97,7 @@ agentic log <session_id>                  # affiche le journal d'une session
 │       ├── bugfix.yaml             # workflow déclaratif, lint-clean
 │       └── DECISIONS.md            # conventions provisoires, ratifiées par ADR
 ├── src/agentic_suite/              # linter des workflows (Lot 0)
-├── tests/                          # 111 tests (lint, vérification, refus, session, e2e)
+├── tests/                          # 128 tests (lint, vérification, refus, session, e2e)
 └── .github/workflows/ci.yml        # CI matrix Python 3.11-3.13
 ```
 

@@ -1,0 +1,35 @@
+# Provider registry — ADR 0005 D3.
+#
+# Machine-level configuration. The runtime reads this from
+# ~/.config/agentic/providers.yaml; the copy in the repo is the portable
+# reference. kind is a closed enum: model | cli | api.
+#
+# A provider may only serve a role whose required capabilities are a
+# subset of its provided capabilities (ADR 0005 D3):
+#   actor     -> reasoning, code_editing, tool_execution
+#   evaluator -> reasoning, read_only
+#
+# The two providers below are the v0 reference set: a model backend for
+# the actor, a CLI-backed checkpoint for the evaluator. Swap the evaluator
+# to a model provider (with capabilities including read_only) when one is
+# configured.
+
+providers:
+  - id: opencode_model
+    kind: model
+    capabilities:
+      - reasoning
+      - code_editing
+      - tool_execution
+      - read_only
+    config:
+      endpoint: https://opencode.ai/zen/go/v1/chat/completions
+      model: deepseek-v4-flash
+
+  - id: evaluator_cli
+    kind: cli
+    capabilities:
+      - reasoning
+      - read_only
+    config:
+      argv: ["agentic", "evaluator", "mock"]  # placeholder — real wiring in Lot 4
