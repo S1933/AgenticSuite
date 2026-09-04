@@ -48,6 +48,7 @@ markers = [
     "lint_rule: tests of individual workflow lint rules (ADR 0003)",
     "verification: tests of check types (ADR 0003 D3)",
     "refusal: tests of schema refusals",
+    "session: tests of session journal persistence (ADR 0004)",
     "e2e: end-to-end tests",
 ]
 filterwarnings = [

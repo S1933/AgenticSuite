@@ -5,8 +5,9 @@ pas encore écrit. Pour le *pourquoi* des décisions, voir [`philosophy.md`](phi
 et les [ADR](adr/). Pour le vocabulaire, [`concepts.md`](concepts.md).
 
 État au moment de la rédaction : **Lot 0 terminé** — un linter de workflows et trois
-fonctions de vérification pures. Le runtime, la persistance de session et l'intégration des
-agents n'existent pas.
+fonctions de vérification pures. **Lot 1 partiel** — `session.py` (journal JSONL chaîné,
+intégrité, budget) et `evaluator.py` (isolation de processus, invariant D9) sont écrits et
+testés ; le runtime qui les appelle n'existe pas encore. L'intégration des agents n'existe pas.
 
 ---
 
@@ -163,6 +164,47 @@ Trois notions d'« inconnu » sont acceptées par `check_context_fields_present`
 `None`, chaîne vide, ou dict portant `{"_unknown": True}`. Cette dernière est la marque
 d'inconnu documenté de l'ADR 0003 D1 ; c'est aussi le seul endroit du code où elle apparaît,
 et elle n'est décrite par aucune ADR — un point à ratifier.
+
+### `agentic_suite/session.py` — journal de session (ADR 0004)
+
+Journal JSONL **append-only** par session. Chaque bloc porte le SHA-256 du bloc
+précédent (`prev_hash`) : toute modification rétroactive casse la chaîne entière.
+Le hash d'un bloc est calculé sur la représentation canonique (clés triées,
+séparateurs compacts) **avant** insertion de `prev_hash`/`hash` (D3).
+
+```python
+canonical_bytes(obj) -> bytes            # JSON compact, clés triées
+block_hash(block) -> str                 # SHA-256 hors prev_hash/hash
+new_session(path, to_state, workflow_version) -> dict   # seq 0, prev_hash = 64 zéros
+append_block(path, block) -> dict        # chaîne sur le dernier bloc
+load_journal(path) -> list[dict]         # vérifie la chaîne, lève SessionIntegrityViolation
+count_budget_transitions(blocks) -> int  # exclut session_resumed (D8)
+```
+
+`load_journal` refuse : hash mismatch, `prev_hash` brisé, trou de `seq`,
+ligne JSON tronquée (D4). Aucune réparation automatique — la session passe à
+`blocked` chez l'appelant. L'invalidation a posteriori (D5 / ADR 0003 D8.1)
+marque `_invalid` les transitions dont `evidence` cite un artefact ensuite
+écrasé.
+
+### `agentic_suite/evaluator.py` — isolation de l'évaluateur (ADR 0003 D9)
+
+L'évaluateur est un **sous-processus à contexte frais** : il reçoit une copie du
+journal dans un répertoire scratch vide, un environnement minimal (PATH seul),
+et les critères sur stdin. Le vrai répertoire de session, ses artefacts et la
+conversation de travail sont physiquement inaccessibles (Lot 1.3).
+
+```python
+run_evaluator(session_path, criteria, command, timeout_s) -> EvaluationResult
+verify_verdict_grounded(result, journal) -> list[str]   # violations D9
+```
+
+`verify_verdict_grounded` implémente l'invariant D9 sémantique : toute preuve
+citée par un verdict doit exister dans l'enregistrement de session. Une preuve
+absente est une violation — l'évaluateur n'a pu l'obtenir que de la
+conversation de travail, ce que D9 interdit. C'est le test demandé par
+l'ADR 0003 D9 (« le premier test de bout en bout de la Phase 4 vérifie cet
+invariant »), rendu exécutable dès maintenant avec l'évaluateur mock.
 
 ### `agentic_suite/cli.py` — 68 lignes
 

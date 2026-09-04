@@ -58,7 +58,7 @@ Sept lots. Chacun porte des tâches, une définition de fin dans le vocabulaire 
 - La regex R17 doit être plus stricte que la première intuition (`cannot_` / `fails_` / `invalid_` nomment des conditions, pas des négations).
 - `bugfix.yaml` v1 contenait `report_is_not_a_bug` qui violait R17. Renommé en `report_is_a_feature_request` pour suivre ADR 0007 D5.
 
-### Lot 1 — Fermer les trous de garantie ⬜
+### Lot 1 — Fermer les trous de garantie ✅
 
 **Intention :** rendre vraies les garanties que les ADR 0002 et 0003 affirment déjà.
 
@@ -68,6 +68,19 @@ Sept lots. Chacun porte des tâches, une définition de fin dans le vocabulaire 
 2. Test d'invariant D9 — capturer la conversation de l'acteur, faire évaluer par l'évaluateur, vérifier que l'évaluateur n'a référencé aucun élément absent de l'enregistrement de session.
 3. Isolation de processus de l'évaluateur — l'évaluateur reçoit le fichier de session et rien d'autre.
 4. Précision de l'ADR 0003 D7 sur les états à évaluateur `actor`.
+
+**Réalisé :**
+
+- `src/agentic_suite/session.py` : journal JSONL append-only, chaînage SHA-256 (`prev_hash`), vérification d'intégrité à la lecture (`SessionIntegrityViolation` : hash, `prev_hash`, trou de `seq`, ligne tronquée), invalidation a posteriori (D5), comptage du budget excluant `session_resumed` (D8). 11 tests.
+- `src/agentic_suite/evaluator.py` : `run_evaluator` (sous-processus à contexte frais, scratch dir, env minimal, copie du journal) et `verify_verdict_grounded` (invariant D9 sémantique). 5 tests avec évaluateur mock — la règle « CI n'appelle jamais un vrai modèle » s'applique à l'évaluateur comme aux providers.
+- `docs/adr/0003-precisions-escalation-evaluator.md` (P4) : les triggers `escalate_when` sont toujours évalués par un évaluateur distinct de l'acteur, quelle que soit la valeur de `evaluated_by` ; `evaluated_by` ne couvre que les assertions de sortie de l'état.
+- `docs/architecture.md` mis à jour (modules `session.py` et `evaluator.py`).
+
+**Découvertes significatives :**
+
+- La troncature d'un journal a deux formes que la chaîne de hash ne détecte pas seule : un bloc retiré du milieu laisse un trou de `seq` (vérifié), une ligne finale partielle est une troncature matérielle (vérifiée). Les deux sont refusées à la lecture.
+- La garantie D9 a deux couches : l'isolation de processus (ce que le sous-processus *peut voir*) et l'ancrage sémantique (ce que son verdict *peut citer*). `verify_verdict_grounded` rend cette seconde couche testable sans runtime complet.
+- P4 (escalade vs `actor`) ne change rien à `bugfix.yaml` v1 (C3 impose déjà `evaluated_by: evaluator` partout) mais borne le coût de l'assouplissement P1 : un état en `actor` n'économise pas l'appel d'évaluateur, il n'économise que l'évaluation des assertions.
 
 **Dépendances :** aucune (le Lot 0 a posé les bases).
 
@@ -129,11 +142,11 @@ Sept lots. Chacun porte des tâches, une définition de fin dans le vocabulaire 
 ## Chemin critique
 
 ```
-Lot 0 (✅) → Lot 1 → Lot 2 → Lot 4 → Lot 5
-                                  ↑
-                            Lot 3 (parallélisable avec la fin de Lot 2)
-                                  ↓
-                              Lot 6 → Lot 7
+Lot 0 (✅) → Lot 1 (✅) → Lot 2 → Lot 4 → Lot 5
+                              ↑
+                        Lot 3 (parallélisable avec la fin de Lot 2)
+                              ↓
+                          Lot 6 → Lot 7
 ```
 
 ## Hors périmètre
