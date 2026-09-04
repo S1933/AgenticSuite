@@ -169,9 +169,15 @@ Sept lots. Chacun porte des tâches, une définition de fin dans le vocabulaire 
 
 **Dépendances :** Lot 5.
 
-### Lot 7 — Deuxième workflow ⬜
+### Lot 7 — Deuxième workflow ✅
 
 **Intention :** vérifier que le schéma généralise.
+
+**Réalisé via le Lot F** (`docs/planning/plan-execution-feature.md`) : `feature.yaml` v1
+écrit et lint-clean 0/0 ; 5 prédictions de lint enregistrées **avant** l'exécution et
+vérifiées ; R10 généralisée (aucun nom d'état codé) ; R11/R12 refusent les booléens ;
+`LintError` mort supprimé ; marqueur `{"_unknown": true, "_reason": ...}` ratifié par
+précision ADR ; C1-C4 ratifiées.
 
 **Condition d'entrée stricte :** dix sessions bugfix terminées et le Lot 5 clos.
 

@@ -1,0 +1,771 @@
+# Workflow feature — version 1
+#
+# Conforme aux ADR 0001 à 0004.
+# Réutilise les conventions C1 à C5 documentées dans DECISIONS.md (ratifiées).
+#
+# Écrit comme test de généricité du schéma et du linter (Lot F).
+# Les manques identifiés à l'écriture sont consignés dans
+# docs/planning/plan-execution-feature.md §3 et ne sont pas contournés ici.
+
+id: feature
+version: 1
+initial_state: intake            # C5
+max_transitions: 24
+
+# ---------------------------------------------------------------------------
+# Vocabulaires (ADR 0003 D1)
+# ---------------------------------------------------------------------------
+
+vocabularies:
+  user_visibility:
+    - user_facing
+    - internal_only
+    - mixed
+    - unknown_visibility
+
+  change_extent:
+    - contained
+    - cross_cutting
+    - unknown_extent
+
+  prior_art:
+    - existing_pattern_in_repo
+    - external_precedent_only
+    - no_precedent
+
+# ---------------------------------------------------------------------------
+# États d'échappement (ADR 0003 D5)
+# ---------------------------------------------------------------------------
+
+escape_states:
+  - id: blocked
+    terminal: false
+    description: >
+      La session ne peut pas avancer et attend un humain. Enregistre ce qui
+      manque et ce qui la débloquerait. Reprenable via session_resumed.
+
+  - id: abandoned
+    terminal: true
+    description: >
+      Aucune fonctionnalité n'a été livrée. Enregistre pourquoi et ce qui a
+      été appris.
+
+# ---------------------------------------------------------------------------
+# Déclencheurs d'escalade (ADR 0003 D7)
+#
+# Les deux derniers sont spécifiques à feature. En l'absence de primitive de
+# gate humaine, ils constituent le seul moyen d'exprimer « cette décision
+# appartient à l'humain » — voir plan-execution-feature.md §3.
+# ---------------------------------------------------------------------------
+
+escalate_when:
+  - id: irreversible_action
+    nature: assertion
+    description: L'action suivante est irréversible ou destructrice.
+
+  - id: security_relevant_change
+    nature: assertion
+    description: La modification touche à la sécurité.
+
+  - id: human_decision_required
+    nature: assertion
+    description: >
+      Une décision produit, architecture ou métier relève de l'humain.
+
+  - id: context_contradiction
+    nature: assertion
+    description: >
+      Le contexte collecté contient une contradiction non résolue.
+
+  - id: public_interface_change
+    nature: assertion
+    description: >
+      Le changement modifie une interface publique, un contrat de données ou
+      un format persisté. La rétrocompatibilité est une décision humaine.
+
+  - id: scope_expansion_beyond_intake
+    nature: assertion
+    description: >
+      Le travail en cours dépasse le périmètre enregistré en intake, ou touche
+      un non-objectif déclaré. Élargir le périmètre est une décision humaine,
+      jamais une conséquence de l'implémentation.
+
+# ---------------------------------------------------------------------------
+# États
+# ---------------------------------------------------------------------------
+
+states:
+
+  # -------------------------------------------------------------------------
+  - id: intake
+    role: actor
+    evaluated_by: evaluator      # C3
+    max_attempts: 2              # revisitable depuis exploration (ADR 0002 §6)
+    description: >
+      L'agent interroge l'utilisateur une question à la fois pour transformer
+      une demande sous-spécifiée en intention explicite. Le mode d'échec du
+      travail de fonctionnalité n'est pas de mal comprendre un défaut, c'est
+      de construire la mauvaise chose : cet état existe pour le rendre coûteux.
+
+    context_fields:
+      - id: original_request
+        type: text
+        required: true
+        description: >
+          La demande initiale telle que reçue, avant toute reformulation.
+          Conservée brute pour permettre de détecter les glissements de sens.
+
+      - id: underlying_need
+        type: text
+        required: true
+        description: >
+          Le besoin derrière la demande. Une demande formulée en solution
+          (ex. « ajouter un bouton export ») doit être ramenée au besoin
+          qu'elle sert, sans quoi les alternatives de conception sont
+          inaccessibles.
+
+      - id: acceptance_criteria
+        type: list
+        required: true
+        description: >
+          Comportements observables permettant de dire que c'est fait. Chaque
+          critère doit être vérifiable par quelqu'un qui n'a pas écrit le code.
+
+      - id: non_goals
+        type: list
+        required: true
+        description: >
+          Ce qui est explicitement hors périmètre. Un non-objectif absent est
+          un non-objectif qui sera franchi en implémentation.
+
+      - id: user_visibility
+        type: enum
+        vocabulary: user_visibility
+        required: true
+        description: Nature de l'exposition du changement.
+
+      - id: known_constraints
+        type: text
+        required: true
+        description: >
+          Contraintes connues : compatibilité, performance, sécurité,
+          échéance, dépendances externes.
+
+      - id: cost_of_inaction
+        type: text
+        required: false
+        description: >
+          Ce qui se passe si rien n'est construit. Sert à arbitrer l'ampleur
+          acceptable du changement.
+
+      - id: suspected_code_areas
+        type: list
+        required: false
+        description: Zones de code que l'utilisateur estime concernées.
+
+    checks:
+      - name: intake_context_present
+        type: context_fields_present
+        fields:
+          - original_request
+          - underlying_need
+          - acceptance_criteria
+          - non_goals
+          - user_visibility
+          - known_constraints
+        max_unknown: 1
+
+    assertions:
+      - id: intent_and_acceptance_criteria_are_explicit
+        description: >
+          Le besoin sous-jacent est énoncé indépendamment de la solution
+          proposée, et chaque critère d'acceptation est vérifiable par un
+          tiers.
+        evidence_from:
+          - checks.intake_context_present
+          - context.underlying_need
+          - context.acceptance_criteria
+          - artifacts.intake_notes
+
+      - id: scope_boundaries_are_recorded
+        description: >
+          Les non-objectifs sont explicites et cohérents avec le besoin
+          énoncé. Une liste de non-objectifs vide est une frontière absente,
+          pas une frontière large.
+        evidence_from:
+          - context.non_goals
+          - context.known_constraints
+          - artifacts.intake_notes
+
+      # --- assertions d'échec (C2) ---
+
+      - id: request_is_already_satisfied
+        description: >
+          Le comportement demandé existe déjà, la demande décrit un défaut
+          plutôt qu'une fonctionnalité, ou le besoin est couvert sans
+          construire quoi que ce soit.
+        evidence_from:
+          - context.original_request
+          - context.underlying_need
+          - artifacts.intake_notes
+
+      - id: intent_cannot_be_established
+        description: >
+          Le besoin sous-jacent ne peut pas être établi dans cette session :
+          l'utilisateur n'est pas le décideur, ou la demande dépend d'un
+          arbitrage produit non rendu.
+        evidence_from:
+          - checks.intake_context_present
+          - context.underlying_need
+          - artifacts.intake_notes
+
+    produces:
+      - id: intake_notes
+        kind: note
+        required: true
+        description: >
+          Journal de l'entretien : questions posées, réponses, champs laissés
+          inconnus avec leur raison.
+
+      - id: intake_decision
+        kind: decision
+        required: false
+        description: >
+          Arbitrage consigné lorsque la demande a été reformulée ou réduite
+          d'entente avec l'utilisateur.
+
+    next: exploration
+
+    on_failure:
+      - to: descoped
+        when: request_is_already_satisfied
+      - to: blocked
+        when: intent_cannot_be_established
+
+  # -------------------------------------------------------------------------
+  - id: exploration
+    role: actor
+    evaluated_by: evaluator      # C3
+    max_attempts: 2              # revisitable depuis design
+    description: >
+      L'agent lit le code avant de proposer quoi que ce soit. Établit où la
+      fonctionnalité vit, quelles conventions existantes elle doit suivre, et
+      ce qu'elle risque de casser. Aucune décision de conception ici.
+
+    context_fields:
+      - id: integration_points
+        type: list
+        required: true
+        description: >
+          Modules, fichiers et frontières que le changement devra toucher ou
+          traverser.
+
+      - id: existing_conventions
+        type: text
+        required: true
+        description: >
+          Comment le dépôt fait déjà des choses comparables : nommage,
+          structure, gestion d'erreur, tests. Une fonctionnalité qui invente
+          sa propre convention crée une dette immédiate.
+
+      - id: prior_art
+        type: enum
+        vocabulary: prior_art
+        required: true
+        description: Existence d'un précédent réutilisable.
+
+      - id: change_extent
+        type: enum
+        vocabulary: change_extent
+        required: true
+        description: Étendue estimée du changement, sur la base du code lu.
+
+      - id: identified_risks
+        type: list
+        required: true
+        description: >
+          Ce que le changement peut casser, et sur quelle base ce risque est
+          identifié.
+
+      - id: test_surface
+        type: text
+        required: false
+        description: >
+          Tests existants couvrant les zones concernées, et leur état.
+
+    checks:
+      - name: exploration_context_present
+        type: context_fields_present
+        fields:
+          - integration_points
+          - existing_conventions
+          - prior_art
+          - change_extent
+          - identified_risks
+        max_unknown: 0
+
+      - name: reconnaissance_recorded
+        type: artifact_exists
+        id: reconnaissance
+
+    assertions:
+      - id: integration_surface_is_established
+        description: >
+          Les points d'intégration sont identifiés à partir du code
+          effectivement lu, et rattachés aux critères d'acceptation
+          enregistrés en intake.
+        evidence_from:
+          - checks.exploration_context_present
+          - checks.reconnaissance_recorded
+          - artifacts.reconnaissance
+          - context.integration_points
+          - context.acceptance_criteria
+
+      # --- assertions d'échec (C2) ---
+
+      - id: intake_context_is_insufficient
+        description: >
+          La lecture du code montre qu'un champ collecté en intake est absent,
+          faux, ou trop imprécis pour concevoir. Typiquement : un critère
+          d'acceptation qui ne correspond à rien d'observable dans le système.
+        evidence_from:
+          - artifacts.reconnaissance
+          - context.acceptance_criteria
+          - context.integration_points
+
+      - id: codebase_access_is_insufficient
+        description: >
+          L'exploration ne peut pas aboutir : dépendance non lisible, service
+          externe non documenté, ou zone du système hors d'atteinte.
+        evidence_from:
+          - context.integration_points
+          - context.identified_risks
+          - artifacts.reconnaissance
+
+    produces:
+      - id: reconnaissance
+        kind: note
+        required: true
+        description: >
+          Ce qui a été lu, ce qui a été trouvé, et ce qui reste inconnu du
+          système après lecture.
+
+    next: design
+
+    on_failure:
+      - to: intake
+        when: intake_context_is_insufficient
+      - to: blocked
+        when: codebase_access_is_insufficient
+
+  # -------------------------------------------------------------------------
+  - id: design
+    role: actor
+    evaluated_by: evaluator      # C3
+    max_attempts: 2              # revisitable depuis implementation et validation
+    description: >
+      L'agent produit au moins deux approches candidates, les confronte aux
+      contraintes enregistrées en intake, en retient une, et consigne pourquoi
+      les autres sont écartées. À contraintes égales, la conception la plus
+      petite gagne. Produit aussi le découpage en étapes vérifiables — le
+      schéma n'ayant pas de primitive de boucle, ce découpage vit dans un
+      artefact et non dans la définition.
+
+    context_fields:
+      - id: considered_approaches
+        type: list
+        required: true
+        description: >
+          Approches envisagées, au minimum deux. Une seule approche envisagée
+          n'est pas une conception, c'est une préférence.
+
+      - id: chosen_approach_rationale
+        type: text
+        required: true
+        description: >
+          Pourquoi cette approche, confrontée aux contraintes et aux
+          conventions existantes. Ce qui la fragilise doit y figurer.
+
+      - id: rejected_approaches_rationale
+        type: text
+        required: true
+        description: >
+          Pourquoi les autres sont écartées. Une approche écartée sans raison
+          enregistrée sera réenvisagée à la première difficulté.
+
+      - id: implementation_steps
+        type: list
+        required: true
+        description: >
+          Étapes ordonnées, chacune vérifiable indépendamment et laissant le
+          dépôt dans un état fonctionnel.
+
+      - id: test_strategy
+        type: text
+        required: true
+        description: >
+          Comment chaque critère d'acceptation sera démontré. Un critère sans
+          moyen de démonstration est un critère à réécrire.
+
+      - id: open_questions
+        type: text
+        required: false
+        description: >
+          Questions non résolues, et si elles bloquent ou non l'implémentation.
+
+    checks:
+      - name: design_context_present
+        type: context_fields_present
+        fields:
+          - considered_approaches
+          - chosen_approach_rationale
+          - rejected_approaches_rationale
+          - implementation_steps
+          - test_strategy
+        max_unknown: 0
+
+      - name: design_decision_recorded
+        type: artifact_exists
+        id: design_decision
+
+      - name: implementation_plan_recorded
+        type: artifact_exists
+        id: implementation_plan
+
+    assertions:
+      - id: approach_is_chosen_with_recorded_alternatives
+        description: >
+          Une approche est retenue, au moins une autre a été examinée et
+          écartée avec sa raison, et le choix est rattaché aux contraintes
+          enregistrées en intake.
+        evidence_from:
+          - checks.design_context_present
+          - checks.design_decision_recorded
+          - artifacts.design_decision
+          - context.considered_approaches
+          - context.chosen_approach_rationale
+          - context.known_constraints
+
+      - id: plan_is_decomposed_into_verifiable_steps
+        description: >
+          Chaque étape du découpage est vérifiable indépendamment, et
+          l'ensemble des étapes couvre tous les critères d'acceptation.
+        evidence_from:
+          - checks.implementation_plan_recorded
+          - artifacts.implementation_plan
+          - context.implementation_steps
+          - context.test_strategy
+          - context.acceptance_criteria
+
+      # --- assertions d'échec (C2) ---
+
+      - id: exploration_is_insufficient
+        description: >
+          La conception bute sur une zone du système qui n'a pas été
+          explorée, ou sur une convention existante non identifiée.
+        evidence_from:
+          - artifacts.reconnaissance
+          - context.integration_points
+          - context.chosen_approach_rationale
+
+      - id: approach_requires_human_decision
+        description: >
+          Les approches candidates diffèrent par un arbitrage qui n'appartient
+          pas à l'agent : compromis produit, dette assumée, rupture de
+          compatibilité, ou coût significatif.
+        evidence_from:
+          - context.considered_approaches
+          - context.rejected_approaches_rationale
+          - artifacts.design_decision
+
+    produces:
+      - id: design_decision
+        kind: decision
+        required: true
+        description: >
+          Approche retenue, alternatives écartées et leurs raisons, risques
+          acceptés.
+
+      - id: implementation_plan
+        kind: note
+        required: true
+        description: >
+          Étapes ordonnées et stratégie de test. Sert de référence de
+          périmètre à l'état implementation.
+
+    next: implementation
+
+    on_failure:
+      - to: exploration
+        when: exploration_is_insufficient
+      - to: blocked
+        when: approach_requires_human_decision
+
+  # -------------------------------------------------------------------------
+  - id: implementation
+    role: actor
+    evaluated_by: evaluator      # obligatoire — ADR 0003 D9
+    max_attempts: 3              # budget délibérément supérieur à bugfix (§7)
+    description: >
+      L'agent exécute les étapes dans l'ordre du plan enregistré, en écrivant
+      le test avec le code. Rien qui ne figure pas au plan n'est implémenté ;
+      si le plan présente une lacune, la session revient en design plutôt que
+      d'improviser.
+
+    context_fields:
+      - id: steps_completed
+        type: list
+        required: true
+        description: >
+          Étapes du plan effectivement réalisées, dans l'ordre, avec ce qui
+          les démontre.
+
+      - id: change_scope
+        type: list
+        required: true
+        description: Fichiers et fonctions modifiés.
+
+      - id: plan_deviations
+        type: text
+        required: true
+        description: >
+          Écarts au plan et leur justification. « Aucun » est une réponse
+          valide et doit être écrite.
+
+      - id: side_effects_considered
+        type: text
+        required: true
+        description: >
+          Effets de bord envisagés, et pourquoi ils sont acceptables ou
+          écartés.
+
+    checks:
+      - name: implementation_context_present
+        type: context_fields_present
+        fields:
+          - steps_completed
+          - change_scope
+          - plan_deviations
+          - side_effects_considered
+        max_unknown: 0
+
+      - name: patch_recorded
+        type: artifact_exists
+        id: patch
+
+    assertions:
+      - id: implementation_follows_the_recorded_plan
+        description: >
+          Chaque étape du plan enregistré est réalisée ou explicitement
+          justifiée comme écart, et aucune étape n'a été ajoutée en cours de
+          route sans passer par design.
+        evidence_from:
+          - checks.implementation_context_present
+          - checks.patch_recorded
+          - artifacts.implementation_plan
+          - artifacts.patch
+          - context.steps_completed
+          - context.plan_deviations
+
+      - id: change_scope_matches_the_plan
+        description: >
+          Chaque modification du patch se rattache à une étape du plan et
+          reste à l'intérieur des non-objectifs enregistrés en intake.
+        evidence_from:
+          - artifacts.patch
+          - artifacts.implementation_plan
+          - context.change_scope
+          - context.non_goals
+
+      # --- assertions d'échec (C2) ---
+
+      - id: plan_is_invalidated
+        description: >
+          L'implémentation a mis en évidence que l'approche retenue est
+          impraticable, ou que le découpage omet une étape nécessaire.
+        evidence_from:
+          - artifacts.design_decision
+          - artifacts.implementation_plan
+          - context.plan_deviations
+
+      - id: implementation_cannot_proceed
+        description: >
+          L'implémentation exige une décision humaine, un accès indisponible,
+          ou une modification hors du périmètre acceptable.
+        evidence_from:
+          - artifacts.implementation_plan
+          - context.change_scope
+          - context.known_constraints
+
+    produces:
+      - id: patch
+        kind: patch
+        required: true
+        description: Le changement effectué, sous forme de diff.
+
+      - id: implementation_decision
+        kind: decision
+        required: false
+        description: >
+          Arbitrage consigné lorsqu'un écart au plan a été jugé préférable au
+          retour en design.
+
+    next: validation
+
+    on_failure:
+      - to: design
+        when: plan_is_invalidated
+      - to: blocked
+        when: implementation_cannot_proceed
+
+  # -------------------------------------------------------------------------
+  - id: validation
+    role: actor
+    evaluated_by: evaluator      # C3
+    max_attempts: 2
+    description: >
+      Le workflow vérifie contre la réalité, pas contre l'intention. Suite de
+      tests, lint, puis relecture explicite de chaque critère d'acceptation
+      enregistré en intake.
+
+    context_fields:
+      - id: criteria_verification
+        type: list
+        required: true
+        description: >
+          Un élément par critère d'acceptation enregistré en intake, avec ce
+          qui le démontre. Un critère non couvert doit apparaître comme tel.
+
+      - id: validation_scope
+        type: text
+        required: true
+        description: Ce qui a été vérifié, et ce qui ne l'a pas été.
+
+      - id: regression_surface
+        type: text
+        required: true
+        description: >
+          Zones existantes potentiellement affectées, et l'état de leur
+          couverture.
+
+      - id: documentation_state
+        type: text
+        required: false
+        description: >
+          Documentation utilisateur mise à jour, ou raison explicite de ne pas
+          la mettre à jour.
+
+    checks:
+      - name: validation_context_present
+        type: context_fields_present
+        fields:
+          - criteria_verification
+          - validation_scope
+          - regression_surface
+        max_unknown: 0
+
+      - name: unit_tests_pass
+        type: command_exit_zero
+        command_ref: run_tests
+
+      - name: lint_passes
+        type: command_exit_zero
+        command_ref: run_lint
+
+      - name: test_result_recorded
+        type: artifact_exists
+        id: test_result
+
+    assertions:
+      - id: acceptance_criteria_are_demonstrably_met
+        description: >
+          Chaque critère d'acceptation enregistré en intake est rattaché à
+          une démonstration concrète : un test qui passe, une sortie de
+          commande, ou une vérification manuelle consignée.
+        evidence_from:
+          - checks.unit_tests_pass
+          - checks.test_result_recorded
+          - artifacts.command_output_unit_tests_pass    # C4
+          - artifacts.test_result
+          - context.criteria_verification
+          - context.acceptance_criteria
+
+      - id: completion_checks_pass
+        description: >
+          Les vérifications de complétion passent, aucune régression n'est
+          apparue sur le périmètre couvert, et le périmètre non vérifié est
+          explicitement documenté.
+        evidence_from:
+          - checks.lint_passes
+          - checks.validation_context_present
+          - artifacts.command_output_lint_passes        # C4
+          - artifacts.patch
+          - context.regression_surface
+
+      # --- assertions d'échec (C2) ---
+
+      - id: design_is_invalidated
+        description: >
+          Les résultats de validation montrent que l'approche retenue ne
+          satisfait pas les critères d'acceptation. Reprendre
+          l'implémentation ne servirait à rien.
+        evidence_from:
+          - artifacts.test_result
+          - artifacts.design_decision
+          - context.criteria_verification
+
+      - id: implementation_is_incorrect_but_design_holds
+        description: >
+          L'approche retenue reste valide, mais l'implémentation ne la traduit
+          pas correctement.
+        evidence_from:
+          - artifacts.test_result
+          - artifacts.patch
+          - artifacts.implementation_plan
+
+      - id: validation_cannot_be_completed
+        description: >
+          La validation ne peut pas être exécutée : environnement
+          indisponible, commande non résolue, ou critère d'acceptation non
+          démontrable en l'état.
+        evidence_from:
+          - context.validation_scope
+          - checks.unit_tests_pass
+          - context.criteria_verification
+
+    produces:
+      - id: test_result
+        kind: test_result
+        required: true
+        description: >
+          Résultat consolidé de la validation, critère par critère, y compris
+          ce qui n'a pas pu être exécuté.
+
+      - id: validation_notes
+        kind: note
+        required: false
+        description: Observations non couvertes par les tests.
+
+    next: done
+
+    on_failure:
+      - to: design
+        when: design_is_invalidated
+      - to: implementation
+        when: implementation_is_incorrect_but_design_holds
+      - to: blocked
+        when: validation_cannot_be_completed
+
+  # -------------------------------------------------------------------------
+  - id: done
+    terminal: true
+    description: >
+      Le workflow enregistre le résultat final et les artefacts produits.
+
+  # -------------------------------------------------------------------------
+  - id: descoped
+    terminal: true
+    description: >
+      L'intake a conclu qu'il n'y a rien à construire : le comportement existe
+      déjà, la demande relève d'un correctif, ou le besoin est couvert
+      autrement. Atteignable uniquement depuis intake (ADR 0003 D5).

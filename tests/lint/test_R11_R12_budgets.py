@@ -10,7 +10,7 @@ from tests.conftest import minimal_workflow
 pytestmark = pytest.mark.lint_rule
 
 
-@pytest.mark.parametrize("bad", [0, -1, "2", 1.5])
+@pytest.mark.parametrize("bad", [0, -1, "2", 1.5, True])  # True is an int subclass
 def test_bad_max_attempts_errors(bad: object) -> None:
     wf = minimal_workflow()
     wf["states"][0]["max_attempts"] = bad
@@ -25,7 +25,7 @@ def test_valid_max_attempts_passes() -> None:
     assert not any(m.rule_id == "R11" for m in msgs)
 
 
-@pytest.mark.parametrize("bad", [0, -5, "20", 2.0])
+@pytest.mark.parametrize("bad", [0, -5, "20", 2.0, False])  # False is an int subclass
 def test_bad_max_transitions_errors(bad: object) -> None:
     wf = minimal_workflow()
     wf["max_transitions"] = bad

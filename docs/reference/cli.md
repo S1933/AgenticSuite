@@ -9,9 +9,11 @@ agentic --version        # agentic 0.0.1.dev0
 agentic --help
 ```
 
-**Périmètre actuel (Lot 0) : `lint` est la seule sous-commande implémentée.** `run`,
-`resume` et `log`, cités par le README comme interface visée, appartiennent à la Phase 2 et
-n'existent pas encore. Les invoquer produit une erreur `argparse` et le code de sortie 2.
+**Périmètre actuel (Lots 0-4) : `lint`, `start`, `status`, `resume`, `log` sont
+implémentés.** Le README citait `run` à titre d'interface visée ; le nommage retenu est
+`start` (ouvrir et exécuter une session). Liste figée par le test
+`tests/e2e/test_architecture_doc.py` (les sous-commandes documentées ici doivent exister
+dans le CLI).
 
 ---
 
@@ -73,6 +75,30 @@ est du lint.
 Conséquence : un fichier vide, une liste au premier niveau ou un YAML cassé produisent un
 code 2 sans message de règle. Un fichier syntaxiquement valide mais sémantiquement vide
 (`{}`) est chargé, puis linté — et échoue sur R20.
+
+---
+
+## `agentic start <workflow>`
+
+Ouvre une session et exécute une tentative de l'état initial. L'évaluateur est injecté via `AGENTIC_EVALUATOR_CMD` (adapter model réel ou mock).
+
+```bash
+agentic start bugfix
+# session bugfix-<id>
+# transition: retry -> discovery (attempt 1 of 2)
+```
+
+## `agentic status <session>`
+
+Affiche l'état courant et vérifie l'intégrité du journal (ADR 0004 D4). Code 3 si la session est corrompue.
+
+## `agentic resume <session> <state>`
+
+Reprend une session depuis `blocked` via un bloc `session_resumed` (ne consomme pas le budget).
+
+## `agentic log <session>`
+
+Affiche le journal bloc par bloc, avec les marqueurs `[INVALID]` (invalidation a posteriori, ADR 0004 D5).
 
 ---
 

@@ -4,10 +4,12 @@ Description du code livré dans `src/agentic_suite/`, de ses frontières et de c
 pas encore écrit. Pour le *pourquoi* des décisions, voir [`philosophy.md`](philosophy.md)
 et les [ADR](adr/). Pour le vocabulaire, [`concepts.md`](concepts.md).
 
-État au moment de la rédaction : **Lot 0 terminé** — un linter de workflows et trois
-fonctions de vérification pures. **Lot 1 partiel** — `session.py` (journal JSONL chaîné,
-intégrité, budget) et `evaluator.py` (isolation de processus, invariant D9) sont écrits et
-testés ; le runtime qui les appelle n'existe pas encore. L'intégration des agents n'existe pas.
+État au moment de la rédaction : **Lots 0 à 4 terminés** — linter (19 règles),
+session journal JSONL chaîné, isolation évaluateur (invariant D9), résolution
+`command_ref` et rôles → fournisseurs (ADR 0005), skills (ADR 0006), engine pur,
+orchestrateur `run_attempt` et CLI `start/status/resume/log`. L'évaluateur model
+réel (opencode-go) est branché via `AGENTIC_EVALUATOR_CMD` ; les sessions de
+validation sur cas réels n'existent pas encore (Lot 5).
 
 ---
 
@@ -222,9 +224,9 @@ resolve_command_ref(project_root, ref, machine_home=None) -> dict | None
 Définition présente mais malformée (pas d'`argv`, argv non-liste,
 `timeout_seconds` invalide) → `CommandRefError`.
 
-### `agentic_suite/providers.py` — rôles et fournisseurs (ADR 0005 D1-D4)
+### `agentic_suite/providers/` — package fournisseurs (ADR 0005 D1-D4, D3)
 
-Rôles fermés (`actor`, `evaluator`), capacités implicites figées (D2).
+`base.py` — rôles fermés (`actor`, `evaluator`), capacités implicites figées (D2).
 Fournisseurs déclarés dans `config/providers.yaml` (machine), `kind` fermé
 (`model | cli | api`). La résolution rôle → fournisseur se fait via
 `role_assignments.yaml` (machine, non overridable par projet).
@@ -237,6 +239,11 @@ resolve_role_provider(role, config_home) -> dict   # le provider résolu
 Un fournisseur ne peut servir un rôle que si ses capacités couvrent les
 capacités requises du rôle : `evaluator_cli` (lecture seule) ne peut pas
 tenir `actor` (`code_editing`, `tool_execution` requis).
+
+`model_evaluator.py` — le judge model réel (ADR 0003 D9), invoqué en
+sous-processus par le runner via `AGENTIC_EVALUATOR_CMD`. Clé lue depuis
+`~/.config/agentic/providers.yaml` (`api_key_file`), jamais par env
+(l'isolation les strippe). Retry sur JSON malformé, échec dur après N.
 
 ### `agentic_suite/skills.py` — invocation de skills (ADR 0006 D4/D5)
 
@@ -316,23 +323,24 @@ validé » comme invalide sans lui.
 ## 4. Ce qui n'existe pas
 
 Ce que les ADR spécifient et que le code ne contient pas. Utile pour ne pas chercher un
-module absent.
+module absent. La cohérence de cette liste avec le code est **verrouillée par le test
+`tests/e2e/test_architecture_doc.py`** : chaque module déclaré absent ici doit lever
+`ImportError`, et les sous-commandes documentées dans `reference/cli.md` doivent
+correspondre aux sous-commandes réelles du CLI.
 
 | Absent | Spécifié par | Prévu |
 |---|---|---|
-| Runtime : machine à états, boucle de transitions, budgets | ADR 0002, 0003 D6 | Lot 4 |
-| Persistance de session : journal chaîné par hash, intégrité, invalidation a posteriori | ADR 0004 | Lot 4 |
-| Résolution `command_ref` → argv (`commands.yaml` projet puis machine) | ADR 0005 D5 | Lot 2 |
-| Configuration des rôles et fournisseurs (`config/role_assignments.yaml`, `config/providers.yaml`) | ADR 0005 D3-D4 | Lot 2 |
-| Invocation de skills, événement `skill_invoked` | ADR 0006 | Lot 3 |
-| Sous-commandes `run`, `resume`, `log` | README | Phase 2 |
-| Snapshot des artefacts par transition | ADR 0003 D8, 0004 D5 | Lot 4 |
-| Validation de schéma au chargement (`id`, `version`, `states` requis) | — | Lot 1 |
+| Validation de schéma formelle au chargement (`pydantic`/`jsonschema` ou équivalent) — le loader lit, le lint valide | — | hors périmètre (les règles citent les ADR, un validateur générique perdurait le message) |
+| Adaptateur `cli` réel pour un fournisseur `kind: cli` (agent non-LLM) — `agentic_suite.providers.cli` | ADR 0005 D3 | Lot 5 si besoin |
+| Adaptateur `api` réel pour un fournisseur `kind: api` — `agentic_suite.providers.api` | ADR 0005 D3 | Lot 5 si besoin |
+| Deuxième workflow (`feature` ou autre) — `workflows/v1/feature.yaml` | Lot 7 du plan | en cours (Lot F) |
+| État de livraison (commit, PR, changelog) — le workflow s'arrête à `done` — `agentic_suite.release` | hors périmètre du v1 | ADR devant précéder |
+| Gate humaine obligatoire comme primitive de schéma | friction constatée sur feature | ADR 0008 conditionnelle (Lot F.5) |
 
-Les dossiers `workflows/`, `agents/`, `providers/`, `commands/`, `hooks/`, `config/`
-annoncés dans la version initiale du README n'existent pas non plus, à l'exception de
-`workflows/`. Ils seront créés quand un lot en aura besoin — la règle du projet étant de
-n'introduire une abstraction qu'après trois usages réels qui la réclament.
+Les dossiers `agents/`, `commands/`, `hooks/` annoncés dans la version initiale du README
+n'existent pas : ils seront créés quand un lot en aura besoin — la règle du projet étant de
+n'introduire une abstraction qu'après trois usages réels qui la réclament. `config/`
+existe (référence portable) et `workflows/v1/` contient `bugfix.yaml`.
 
 ---
 
@@ -357,19 +365,21 @@ produirait « `type` is not one of [...] » là où R5 explique la règle de fer
 
 À traiter, listés ici pour qu'ils ne se perdent pas.
 
-- **R10 code en dur un nom d'état de `bugfix`** (`reclassified`, `discovery`). Le linter
-  est censé être générique ; il ne l'est pas tout à fait. À généraliser avant le second
-  workflow (Lot 7).
-- **`LintError` n'est jamais levée.** Code mort.
-- **`isinstance(x, int)` accepte les booléens** dans R11 et R12 : `max_attempts: true`
-  passe la validation.
-- **`verification/checks.py` n'a aucun appelant.** Le module est correct et testé, mais son
-  contrat réel — la forme exacte du `definition` et du `context` que le runtime passera —
-  ne sera confirmé qu'au Lot 4.
-- **`{"_unknown": True}`** est une convention de code sans ADR.
 - **`concepts.md` porte un exemple YAML obsolète**, signalé en tête de fichier
   (`exit_when:` remplacé par `checks:`/`assertions:`), et un `evaluated_by: investigator`
   non conforme à l'ADR 0003 D9.
+- **ALLOWED_KINDS** : l'ensemble fermé de D8 est déclaré dans `rules.py` ; son contenu
+  n'a été exercé que par `bugfix.yaml` (diagnosis, repro, patch, test_result, decision,
+  note). `feature.yaml` n'utilise que note, decision, patch, test_result — aucun kind
+  nouveau. Un quatrième workflow vérifiera l'ensemble plus largement.
+
+Résolus (Lot F) :
+- R10 (noms d'états codés en dur) généralisé — un terminal local cible d'un `on_failure`
+  n'est atteignable que depuis `initial_state`.
+- `LintError` (classe morte) supprimée.
+- `isinstance(x, int)` acceptait les booléens dans R11/R12 — corrigé (`_is_positive_int`).
+- `{"_unknown": True}` était une convention sans ADR — ratifiée (précision ADR) et
+  renforcée : `_reason` non vide obligatoire.
 
 ---
 

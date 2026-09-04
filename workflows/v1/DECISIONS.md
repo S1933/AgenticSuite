@@ -3,10 +3,10 @@
 Ce fichier recense les points que les ADR 0001 à 0004 laissent ouverts et que
 `bugfix.yaml` a dû trancher pour être écrivable.
 
-**Statut : provisoire.** La règle de fermeture de l'ADR 0003 D3 exige qu'un
-mécanisme modifiant le schéma passe par une ADR numérotée. Les conventions C1,
-C4 et C5 modifient le schéma et doivent être ratifiées avant d'être considérées
-comme stables. C2 est le périmètre annoncé de l'ADR 0007.
+**Statut : ratifiées.** C2 a été ratifiée par l'ADR 0007, C3/C5/C6 par
+`0003-precisions-evaluator-initial-state-context-scope.md`, et C1/C4 par
+`0003-precisions-conventions-C1-C4.md`. Le workflow `feature` (Lot F) réutilise ces
+conventions avec un statut ADR.
 
 ---
 
@@ -147,3 +147,31 @@ définition au même titre qu'une assertion sans preuve.
   et de `concepts.md` ne sont pas utilisés : ils ne sont définis par aucune ADR
   et l'exemple de `concepts.md` (`evaluated_by: investigator`) n'est pas
   conforme à D9.
+
+## Ce que `feature` (Lot F) a révélé
+
+Le second workflow a servi de test de généricité. Constats consignés dans
+`docs/planning/plan-execution-feature.md` §3-4 ; l'essentiel :
+
+- **Polarité des assertions d'échec (L3).** La convention est confirmée par
+  `feature` : un identifiant d'assertion d'échec peut être négatif
+  (`plan_is_invalidated`, `implementation_cannot_proceed`,
+  `design_is_invalidated`) — la regex de l'ADR 0007 ne refuse que les formes
+  `is_not_` / `not_` / `does_not_` qui nient une assertion nominale. Les deux
+  workflows utilisent la même convention ; rien à modifier.
+- **Absence de primitive de gate.** `feature` a besoin d'une gate entre
+  `design` et `implementation` (« approbation avant de construire »). Sans
+  primitive de schéma, la gate est exprimée par un déclencheur d'escalade
+  global (`public_interface_change`, `scope_expansion_beyond_intake`) qui force
+  `blocked` — reprenable, `session_resumed` ne consomme pas le budget. Gate
+  **conditionnelle**, pas obligatoire. Ratification conditionnelle : si trois
+  sessions réelles confirment que la transition automatique design →
+  implementation coûte trop, ADR 0008 (gates humaines). Sinon, ne rien écrire.
+- **Absence de primitive de boucle.** Le découpage en sous-tâches vit dans
+  l'artefact `implementation_plan` ; `implementation` est un seul état, et le
+  respect du plan est une assertion. Rien à corriger tant que trois sessions
+  réelles ne réclament pas une primitive.
+- **R10 généralisée.** Les noms d'états codés en dur (`reclassified`,
+  `discovery`) ont été remplacés par la contrainte réelle : un terminal local
+  cible d'un `on_failure` n'est atteignable que depuis `initial_state`.
+  `descoped` est ainsi protégé comme `reclassified` l'était.

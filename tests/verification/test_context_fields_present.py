@@ -37,6 +37,16 @@ def test_explicit_unknown_marker_counts_as_unknown() -> None:
     assert result.passed
 
 
+def test_unknown_without_reason_is_not_unknown_marker() -> None:
+    """ADR 0003 D1: 'inconnu avec une raison explicite' — the reason is
+    mandatory. A bare _unknown dict is a malformed value, not a marker."""
+    definition = {"fields": ["a"], "max_unknown": 1}
+    context = {"a": {"_unknown": True}}  # no _reason
+    result = check_context_fields_present(definition, context)
+    assert not result.passed
+    assert "_reason" in result.detail  # the malformed marker names the missing reason
+
+
 def test_empty_string_field_is_unknown() -> None:
     definition = {"fields": ["a"], "max_unknown": 0}
     context = {"a": ""}

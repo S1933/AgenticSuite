@@ -56,9 +56,18 @@ def check_context_fields_present(
             unknown.append(f)
             continue
         # explicit 'unknown' marker with reason counts as unknown
+        # (ADR 0003 D1: "marqué inconnu avec une raison explicite")
         if isinstance(v, dict) and v.get("_unknown") is True:
-            unknown.append(f)
-            continue
+            reason = v.get("_reason")
+            if isinstance(reason, str) and reason.strip():
+                unknown.append(f)
+                continue
+            # _unknown without a non-empty _reason is a malformed value,
+            # not a documented unknown — it does not satisfy the field.
+            return CheckResult(
+                False,
+                f"field '{f}' has _unknown: true but no non-empty _reason",
+            )
 
     if len(unknown) <= max_unknown:
         return CheckResult(True, f"{len(unknown)} unknown (max {max_unknown})")

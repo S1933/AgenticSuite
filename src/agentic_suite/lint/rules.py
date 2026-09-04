@@ -207,18 +207,54 @@ def rule_R9_escape_state_declared(workflow: dict):
                 )
 
 
-def rule_R10_reclassified_only_from_discovery(workflow: dict):
-    """ADR 0003 D5: reclassified is reachable only from discovery."""
+def rule_R10_reclassification_only_from_initial(workflow: dict):
+    """ADR 0003 D5 (généralisé) : un terminal local cible d'un `on_failure`
+    est un terminal de reclassement, atteignable uniquement depuis
+    `initial_state`.
+
+    La version originale codait en dur `reclassified` / `discovery` — le
+    second workflow (`feature`) utilise `descoped` / `intake`, et la règle
+    devenait silencieuse au lieu de protéger. La contrainte réelle de
+    l'ADR 0003 D5 est exprimable sans nommer un état : « le terminal de
+    reclassement n'est atteignable que depuis l'état initial ».
+    """
+    initial = workflow.get("initial_state")
+    if not isinstance(initial, str):
+        return  # R20 signale initial_state absent/invalide
+
+    state_ids = {sid for sid, _ in _iter_states(workflow)}
+    escape_ids = {
+        e["id"] for e in (workflow.get("escape_states") or []) if isinstance(e, dict)
+    }
+    # Terminaux déclarés localement (hors escape_states)
+    local_terminal_ids = {
+        sid for sid, state in _iter_states(workflow)
+        if _is_terminal(state) and sid not in escape_ids
+    }
+
     for state_id, state in _iter_states(workflow):
-        if state_id == "discovery":
-            continue
         for i, of in enumerate(state.get("on_failure") or []):
-            if isinstance(of, dict) and of.get("to") == "reclassified":
+            if not isinstance(of, dict):
+                continue
+            target = of.get("to")
+            if target not in local_terminal_ids:
+                continue
+            # un terminal local visé par on_failure est un terminal de
+            # reclassement : il n'est atteignable que depuis initial_state
+            if target not in state_ids:
+                continue  # R9 signale les cibles inconnues
+            if state_id != initial:
                 yield error(
                     "R10",
                     f"states.{state_id}.on_failure[{i}].to",
-                    "'reclassified' is reachable only from discovery (ADR 0003 D5)",
+                    f"reclassification terminal '{target}' is reachable only "
+                    f"from initial_state '{initial}' (ADR 0003 D5)",
                 )
+
+
+def _is_positive_int(value: object) -> bool:
+    """True when *value* is an int but NOT a bool (bool is a subclass of int)."""
+    return isinstance(value, int) and not isinstance(value, bool) and value >= 1
 
 
 def rule_R11_max_attempts_integer(workflow: dict):
@@ -227,7 +263,7 @@ def rule_R11_max_attempts_integer(workflow: dict):
         ma = state.get("max_attempts")
         if ma is None:
             continue
-        if not isinstance(ma, int) or ma < 1:
+        if not _is_positive_int(ma):
             yield error(
                 "R11",
                 f"states.{state_id}.max_attempts",
@@ -240,7 +276,7 @@ def rule_R12_max_transitions_integer(workflow: dict):
     mt = workflow.get("max_transitions")
     if mt is None:
         return
-    if not isinstance(mt, int) or mt < 1:
+    if not _is_positive_int(mt):
         yield error(
             "R12",
             "max_transitions",
@@ -520,7 +556,7 @@ ALL_RULES = [
     rule_R7_evidence_from_nonempty,
     rule_R8_on_failure_targets_known_assertion,
     rule_R9_escape_state_declared,
-    rule_R10_reclassified_only_from_discovery,
+    rule_R10_reclassification_only_from_initial,
     rule_R11_max_attempts_integer,
     rule_R12_max_transitions_integer,
     rule_R13_escalate_when_is_assertion,

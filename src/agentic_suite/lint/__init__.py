@@ -18,10 +18,6 @@ class LintMessage:
         return f"[{self.severity}] {self.rule_id} at {self.path}: {self.message}"
 
 
-class LintError(Exception):
-    """Raised by lint rules that fail with a fatal error."""
-
-
 # Convenience constructors for readability in rule code.
 def error(rule_id: str, path: str, message: str) -> LintMessage:
     return LintMessage(rule_id=rule_id, severity="error", path=path, message=message)
