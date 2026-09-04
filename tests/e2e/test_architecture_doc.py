@@ -43,9 +43,11 @@ PRESENT = [
     "agentic_suite.providers",
     "agentic_suite.providers.base",
     "agentic_suite.providers.model_evaluator",
+    "agentic_suite.providers.model_actor",
     "agentic_suite.skills",
     "agentic_suite.engine",
     "agentic_suite.runner",
+    "agentic_suite.session_loop",
     "agentic_suite.cli",
 ]
 

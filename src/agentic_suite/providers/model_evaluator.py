@@ -27,9 +27,19 @@ from pathlib import Path
 
 PROMPT = """You are the EVALUATOR of a declarative engineering workflow.
 
-You receive ONLY the session record (journal) and the exit criteria. You
-never saw the work conversation that produced the state — anything absent
-from the session record is OUT OF SCOPE for you.
+You receive ONLY the session record and the exit criteria. You never saw
+the work conversation that produced the state — anything absent from the
+session record is OUT OF SCOPE for you.
+
+SESSION RECORD:
+- journal (JSONL):
+{journal}
+
+- context fields collected (context.<field_id>):
+{context}
+
+- artifacts produced (artifacts.<artifact_id>):
+{artifacts}
 
 For each criterion, return a strict JSON object:
 {{
@@ -48,9 +58,6 @@ Rules:
 - "evidence" must cite an identifier that exists in the session record
   (context.<field>, artifacts.<id>, checks.<name>). Never invent one.
 - No prose outside the JSON object.
-
-SESSION RECORD (journal):
-{journal}
 
 CRITERIA TO JUDGE:
 {criteria}
@@ -141,10 +148,36 @@ def evaluate(
     criteria: list[dict],
     config_home: Path | None = None,
 ) -> dict:
-    """Run the judge over the journal copy; returns {'verdicts': {...}}."""
+    """Run the judge over the journal copy; returns {'verdicts': {...}}.
+
+    Reads the session record from the scratch dir: session.jsonl (argv /
+    cwd), plus context.json and artifacts/ when present next to it.
+    """
     journal = journal_path.read_text(encoding="utf-8")
     criteria_text = json.dumps(criteria, ensure_ascii=False, indent=2)
-    prompt = PROMPT.format(journal=journal, criteria=criteria_text)
+
+    scratch = journal_path.parent
+    ctx_file = scratch / "context.json"
+    if ctx_file.is_file():
+        context_text = ctx_file.read_text(encoding="utf-8")
+    else:
+        context_text = "(no context fields collected)"
+
+    arts_dir = scratch / "artifacts"
+    if arts_dir.is_dir():
+        parts = []
+        for p in sorted(arts_dir.glob("*.json")):
+            try:
+                content = p.read_text(encoding="utf-8")
+            except OSError:
+                content = "(unreadable)"
+            parts.append(f"--- {p.name} ---\n{content[:4000]}")
+        artifacts_text = "\n".join(parts) if parts else "(no artifacts)"
+    else:
+        artifacts_text = "(no artifacts)"
+
+    prompt = PROMPT.format(journal=journal, context=context_text,
+                           artifacts=artifacts_text, criteria=criteria_text)
 
     config = _machine_config(config_home)
     cfg = config.get("config") or {}
@@ -168,7 +201,7 @@ def evaluate(
                 cleaned[cid] = {"verdict": value,
                                 "evidence": str(verdict.get("evidence", ""))}
             return {"verdicts": cleaned}
-        except ValueError as exc:  # malformed parse -> retry
+        except (ValueError, RuntimeError) as exc:  # malformed parse / HTTP flake -> retry
             last_error = exc
             time.sleep(0.5)
     raise RuntimeError(f"judge failed after {_RETRIES + 1} attempts: {last_error}")

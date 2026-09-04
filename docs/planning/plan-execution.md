@@ -148,7 +148,7 @@ Sept lots. Chacun porte des tâches, une définition de fin dans le vocabulaire 
 
 **Dépendances :** Lots 1, 2, 3.
 
-### Lot 5 — Validation Phase 4 sur cas réels ⬜
+### Lot 5 — Validation Phase 4 ⬜ (en cours)
 
 **Intention :** le seul lot qui décide si le projet vaut quelque chose.
 
@@ -159,7 +159,42 @@ Sept lots. Chacun porte des tâches, une définition de fin dans le vocabulaire 
 3. Mesurer le ratio de champs sortis inconnus (signal de découverte-formulaire).
 4. Mesurer les refus par type (un refus jamais déclenché est un mécanisme mort).
 
-**Dépendances :** Lot 4. C'est le chemin critique du projet.
+**Dépendances :** Lot 4, acteur model (Lot 5.0), boucle run_session (Lot 5.1),
+`agentic run` (Lot 5.2).
+
+**Découvertes en cours :**
+
+- **D5.1 — L'évaluateur ne voyait pas le contexte.** `run_evaluator` copiait
+  uniquement `session.jsonl` dans le scratch ; les assertions citant
+  `context.<id>` étaient jugées `insufficient_evidence` quoi qu'il arrive →
+  discovery → blocked. Corrigé : `run_evaluator(session_dir=...)` copie aussi
+  `context.json` + `artifacts/` (le contexte ET les artefacts SONT l'enregistrement
+  de session, ADR 0001 — la conversation de travail reste exclue, D9 intact).
+  **La première session réelle a révélé ce bug mieux que tout test unitaire.**
+- **D5.2 — L'acteur refuse d'inventer.** Sans rapport initial semé, l'acteur LLM a
+  marqué les 8 champs required de discovery comme `{"_unknown": true, _reason: "doit
+  être collecté auprès de l'utilisateur"}` → le check discovery_context_present
+  (max_unknown: 2) échoue → blocked. Comportement **exactement** conforme à
+  l'ADR 0003 D1 et à l'ADR 0002 (« ne pas deviner »). `agentic run --context <file>`
+  ajouté pour semer le rapport initial, comme le ferait un utilisateur.
+- **D5.3 — Première session complète observée (bug réel de `scratch/sizes.py`).**
+  `agentic run bugfix --context rapport.json` : discovery → investigation avec un
+  **diagnostic LLM correct** (« la branche binary=False ne convertit pas »), contexte
+  investigation complet — puis blocked sur investigation. Le mécanisme tourne de bout
+  en bout ; le blocage vient d'un verdict évaluateur défavorable (faux négatif probable
+  sur `root_cause_is_identified`, ou faux positif de `no_root_cause_found`). **F.4
+  demande précisément de compter ces cas** ; la session #1 les a produits.
+- **D5.4 — Faux positifs du juge sur les assertions C2 (mesure F.4, session #1).**
+  Rejeu ciblé de l'évaluateur sur la session #1 avec les 3 assertions investigation +
+  4 escalades : `root_cause_is_identified` → **pass** (bon) ; `no_root_cause_found` →
+  fail (bon) ; escalades → `insufficient_evidence` (bon) ; mais
+  **`required_context_is_missing` → pass à tort** : le contexte investigation est
+  complet (`evidence_examined`, `root_cause_hypothesis`, `confidence_rationale` tous
+  présents, `diagnosis.json` correct) et rien ne manque. Le juge LLM est
+  **non-déterministe** : la volée et le rejeu divergent. **Un pass sur une assertion
+  d'échec C2 envoie une session saine en blocked/discovery** — c'est le refus le plus
+  coûteux à tort. À mesurer sur les sessions suivantes (variance) avant toute
+  correction du prompt.
 
 **Risque majeur :** choisir des bugs faciles pour faire passer les scénarios. Les bugs viennent du travail réel en cours, pas d'une liste établie pour le plan.
 

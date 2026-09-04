@@ -9,11 +9,11 @@ agentic --version        # agentic 0.0.1.dev0
 agentic --help
 ```
 
-**Périmètre actuel (Lots 0-4) : `lint`, `start`, `status`, `resume`, `log` sont
-implémentés.** Le README citait `run` à titre d'interface visée ; le nommage retenu est
-`start` (ouvrir et exécuter une session). Liste figée par le test
-`tests/e2e/test_architecture_doc.py` (les sous-commandes documentées ici doivent exister
-dans le CLI).
+**Périmètre actuel (Lots 0-5) : `lint`, `start`, `run`, `status`, `resume`, `log` sont
+implémentés.** Le README citait `run` à titre d'interface visée ; `run` exécute la boucle
+complète (acteur → évaluateur → engine) jusqu'à un état terminal ou `blocked`. Liste
+figée par le test `tests/e2e/test_architecture_doc.py` (les sous-commandes documentées
+ici doivent exister dans le CLI).
 
 ---
 
@@ -86,6 +86,21 @@ Ouvre une session et exécute une tentative de l'état initial. L'évaluateur es
 agentic start bugfix
 # session bugfix-<id>
 # transition: retry -> discovery (attempt 1 of 2)
+```
+
+## `agentic run <workflow>`
+
+Ouvre une session et exécute la **boucle complète** (Lot 5) : l'acteur
+(`AGENTIC_ACTOR_CMD`) produit contexte + artefacts, le runtime les persiste, l'évaluateur
+(`AGENTIC_EVALUATOR_CMD`) juge, l'engine décide — jusqu'à un état terminal ou `blocked`.
+
+```bash
+AGENTIC_ACTOR_CMD="python -m agentic_suite.providers.model_actor --config-home /home/pi" \
+AGENTIC_EVALUATOR_CMD="python -m agentic_suite.providers.model_evaluator --config-home /home/pi" \
+agentic run bugfix
+# session bugfix-<id>
+# final_state: done (terminal)
+# steps: 5
 ```
 
 ## `agentic status <session>`

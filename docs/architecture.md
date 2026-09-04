@@ -291,6 +291,22 @@ Le CLI (`agentic start|status|resume|log`) branche l'orchestrateur ; un
 strippe). `providers/base.py` porte la résolution rôle → fournisseur ;
 `providers/__init__.py` ré-exporte pour la compat.
 
+### `agentic_suite/session_loop.py` — boucle de session (Lot 5.1)
+
+`run_session` exécute le workflow complet : acteur → persistance du travail
+(contexte + artefacts hashés, ADR 0004 D6) → checks → évaluateur → engine →
+transition, jusqu'à un état terminal, `blocked`, ou le budget/bornes.
+
+```python
+run_session(session_path, session_dir, workflow, actor_cmd, evaluator_cmd,
+            actor_env=None, evaluator_env=None, project_root=None,
+            machine_home=None, max_steps=40) -> SessionResult
+```
+
+L'acteur est aussi injecté : `providers/model_actor.py` (worker, produit
+`{context, artifacts}` depuis le contrat d'état + snapshot lecture seule du
+projet). Jamais de vrai modèle en CI (mocks scriptés).
+
 ### `agentic_suite/cli.py` — 68 lignes
 
 `argparse`, une sous-commande, trois codes de sortie. Voir la [référence CLI](reference/cli.md).

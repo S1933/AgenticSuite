@@ -43,6 +43,11 @@ def _build_parser() -> argparse.ArgumentParser:
     start_p = sub.add_parser("start", help="Open and run a session")
     start_p.add_argument("workflow", help="Workflow id (looked up in workflows/v<N>/)")
 
+    run_p = sub.add_parser("run", help="Run a session loop to terminal/blocked")
+    run_p.add_argument("workflow", help="Workflow id (looked up in workflows/v<N>/)")
+    run_p.add_argument("--context", metavar="FILE",
+                       help="Seed context.json (user-supplied report) before the loop")
+
     status_p = sub.add_parser("status", help="Show session state and integrity")
     status_p.add_argument("session", help="Session id")
 
@@ -104,6 +109,15 @@ def _evaluator_cmd_from_env() -> list[str]:
     return shlex.split(raw)
 
 
+def _actor_cmd_from_env() -> list[str]:
+    raw = os.environ.get("AGENTIC_ACTOR_CMD")
+    if not raw:
+        raise RuntimeError(
+            "AGENTIC_ACTOR_CMD is not set — no actor provider wired yet."
+        )
+    return shlex.split(raw)
+
+
 def _session_dir(session_id: str) -> Path:
     return Path.cwd() / SESSIONS_DIR / session_id
 
@@ -159,6 +173,68 @@ def cmd_start(workflow_id: str) -> int:
     print(f"session {session_id}")
     print(f"transition: {t.kind} -> {t.to or '(terminal)'}"
           + (f" ({t.reason})" if t.reason else ""))
+    return 0
+
+
+def cmd_run(workflow_id: str, context_file: str | None = None) -> int:
+    """Open a session and run the full loop to terminal/blocked (Lot 5.2)."""
+    try:
+        workflow_path = _resolve_workflow_path(workflow_id)
+        wf = load_workflow(workflow_path)
+    except (LoadError, OSError) as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 2
+
+    session_id = f"{workflow_id}-{uuid.uuid4().hex[:8]}"
+    sdir = _session_dir(session_id)
+    sdir.mkdir(parents=True, exist_ok=True)
+    jp = sdir / "session.jsonl"
+    initial = wf.get("initial_state")
+    if not initial:
+        print("error: workflow has no initial_state", file=sys.stderr)
+        return 2
+    new_session(jp, to_state=initial, workflow_version=wf.get("version", 1))
+    if context_file:
+        try:
+            seed = json.loads(Path(context_file).read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as e:
+            print(f"error: cannot read context file: {e}", file=sys.stderr)
+            return 2
+        (sdir / "context.json").write_text(
+            json.dumps(seed, ensure_ascii=False), encoding="utf-8"
+        )
+    else:
+        (sdir / "context.json").write_text("{}", encoding="utf-8")
+
+    try:
+        actor_cmd = _actor_cmd_from_env()
+        evaluator_cmd = _evaluator_cmd_from_env()
+    except RuntimeError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 2
+
+    from agentic_suite.session_loop import run_session
+
+    try:
+        result = run_session(
+            session_path=jp,
+            session_dir=sdir,
+            workflow=wf,
+            actor_cmd=actor_cmd,
+            evaluator_cmd=evaluator_cmd,
+            actor_env=dict(os.environ),
+            evaluator_env=dict(os.environ),
+            project_root=Path.cwd(),
+            machine_home=None,
+        )
+    except Exception as e:  # integrity or provider failures
+        print(f"error: {e}", file=sys.stderr)
+        return 3
+
+    print(f"session {session_id}")
+    print(f"final_state: {result.final_state} "
+          f"({'terminal' if result.terminal else 'needs human'})")
+    print(f"steps: {result.transitions}")
     return 0
 
 
@@ -229,7 +305,7 @@ def cmd_log(session_id: str) -> int:
             f"{block.get('to_state')} (seq {block.get('seq')}){marker}"
         )
         print(detail)
-        for key in ("criteria_evaluated", "evidence"):
+        for key in ("criteria_evaluated", "criteria_verdicts", "evidence"):
             if block.get(key):
                 print(f"    {key}: {json.dumps(block[key], ensure_ascii=False)}")
     return 0
@@ -242,6 +318,8 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_lint(args.workflow, strict=args.strict)
     if args.command == "start":
         return cmd_start(args.workflow)
+    if args.command == "run":
+        return cmd_run(args.workflow, context_file=args.context)
     if args.command == "status":
         return cmd_status(args.session)
     if args.command == "resume":

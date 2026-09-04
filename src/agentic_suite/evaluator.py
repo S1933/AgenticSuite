@@ -69,6 +69,7 @@ def run_evaluator(
     command: list[str],
     timeout_s: float = 60.0,
     env: dict[str, str] | None = None,
+    session_dir: Path | None = None,
 ) -> EvaluationResult:
     """Run *command* against a copy of the session journal, in isolation.
 
@@ -83,16 +84,31 @@ def run_evaluator(
         env: Optional extra environment fused over the minimal evaluator
             env (e.g. scripted mock verdicts in tests). Secrets in the
             caller's env are still stripped by ``build_evaluator_env``.
+        session_dir: If given, the session's ``context.json`` and
+            ``artifacts/`` are copied alongside the journal. The context
+            fields and artifacts ARE the session record (ADR 0001), so
+            the evaluator must see them to judge ``context.<id>`` /
+            ``artifacts.<id>`` evidence. The work conversation is never
+            copied (D9 intact).
 
-    The subprocess cwd is a fresh scratch dir containing exactly one file:
-    ``session.jsonl`` (a copy). The real session directory is not passed
-    anywhere except as the source of the copy, and the copy path is
-    abstracted — the evaluator can never resolve back to the original.
+    The subprocess cwd is a fresh scratch dir containing the session
+    record: ``session.jsonl`` (always), plus ``context.json`` and
+    ``artifacts/`` when *session_dir* is provided. The real session
+    directory is not passed anywhere except as the source of the copy,
+    and the copy path is abstracted — the evaluator can never resolve
+    back to the original.
     """
     scratch = Path(tempfile.mkdtemp(prefix="agentic-eval-"))
     try:
         journal_copy = scratch / "session.jsonl"
         shutil.copy2(session_path, journal_copy)
+        if session_dir is not None:
+            ctx_file = session_dir / "context.json"
+            if ctx_file.is_file():
+                shutil.copy2(ctx_file, scratch / "context.json")
+            arts = session_dir / "artifacts"
+            if arts.is_dir():
+                shutil.copytree(arts, scratch / "artifacts", dirs_exist_ok=True)
         # The command is a fixed argv list; the journal path is appended so
         # the evaluator locates its input without any env/cwd trickery.
         argv = list(command) + [str(journal_copy)]

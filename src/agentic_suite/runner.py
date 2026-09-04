@@ -206,6 +206,7 @@ def run_attempt(
         command=evaluator_cmd,
         timeout_s=60,
         env=evaluator_env,
+        session_dir=session_dir,
     ) if criteria else None
 
     assertions: dict[str, str] = {}
@@ -254,6 +255,14 @@ def run_attempt(
     if transition.kind != KIND_TERMINAL:
         evidence = _collect_evidence(state, assertions)
         seq += 1
+        all_verdicts: dict[str, str] = {}
+        for crit in criteria:
+            v = "fail"
+            if crit["kind"] == "escalation":
+                v = "pass" if escalations.get(crit["id"]) else "fail"
+            else:
+                v = assertions.get(crit["id"], "fail")
+            all_verdicts[crit["id"]] = v
         append_block(session_path, {
             "seq": seq,
             "timestamp": _now_iso(),
@@ -261,6 +270,7 @@ def run_attempt(
             "from_state": state_id,
             "to_state": transition.to,
             "criteria_evaluated": sorted(assertions.keys()),
+            "criteria_verdicts": all_verdicts,   # Lot 5 D5.5 — auditer les verdicts
             "evidence": evidence,
             "evaluator": "evaluator",
             "attempt_counter": {state_id: _attempt_count(journal, state_id)},

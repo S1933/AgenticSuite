@@ -75,11 +75,19 @@ Ces éléments ne seront ajoutés que si l'usage réel en démontre le besoin (c
 L'interface visée présente une liste de workflows à démarrer ou reprendre, plutôt que des commandes de bas niveau. La première implémentation est une CLI, mais le modèle de workflow ne dépend pas de l'interface.
 
 ```bash
-agentic lint workflows/v1/bugfix.yaml    # valide un workflow
-agentic run bugfix                        # démarre une session (Phase 2)
-agentic resume <session_id>               # reprend une session bloquée
-agentic log <session_id>                  # affiche le journal d'une session
+agentic lint workflows/v1/bugfix.yaml            # valide un workflow
+agentic start bugfix                              # ouvre une session, une tentative
+agentic run bugfix --context rapport.json         # boucle complète jusqu'à terminal/blocked
+agentic status <session_id>                       # état + intégrité
+agentic resume <session_id> <state>               # reprend une session bloquée
+agentic log <session_id>                          # affiche le journal
 ```
+
+L'exécution fait appel à deux providers injectés (ADR 0005) : un **acteur**
+(`AGENTIC_ACTOR_CMD`, produit contexte + artefacts) et un **évaluateur**
+(`AGENTIC_EVALUATOR_CMD`, juge les assertions — distinct de l'acteur, ADR 0003 D9).
+Les adaptateurs model de référence (opencode-go) sont dans
+`src/agentic_suite/providers/` ; la CI n'appelle jamais un vrai modèle.
 
 ## Arborescence actuelle
 
