@@ -28,6 +28,7 @@ from agentic_suite.engine import KIND_TERMINAL, Verdict, advance
 from agentic_suite.evaluator import run_evaluator
 from agentic_suite.session import append_block, load_journal
 from agentic_suite.verification.checks import (
+    check_artifact_applied,
     check_artifact_exists,
     check_command_exit_zero,
     check_context_fields_present,
@@ -126,10 +127,99 @@ def _run_checks(
                 output["check_name"] = name
                 command_artifacts.append(output)
                 res = check_command_exit_zero(chk, output)
+        elif ctype == "artifact_applied":  # ADR 0009 D1
+            apply_result = _apply_artifact(chk, artifacts, session_dir,
+                                           project_root, machine_home)
+            res = check_artifact_applied(chk, apply_result)
         else:
             res = check_artifact_exists(chk, artifacts)  # unknown type: fail
         results[name] = res.passed
     return results, command_artifacts
+
+
+def _application_content(raw: str) -> Optional[str]:
+    """Extract the diff text from an artifact's stored content.
+
+    Artifacts are persisted as JSON (session D6). A patch artifact is
+    stored as ``json.dumps(diff_string)``; some producers keep a dict
+    with a 'patch' or 'diff' key. Returns the diff text, or None if the
+    content is not a string anywhere (never a guess).
+    """
+    try:
+        decoded = json.loads(raw)
+    except json.JSONDecodeError:
+        return raw  # plain text artifact
+    if isinstance(decoded, str):
+        return decoded
+    if isinstance(decoded, dict):
+        for key in ("patch", "diff", "content"):
+            value = decoded.get(key)
+            if isinstance(value, str) and value:
+                return value
+    return None
+
+
+def _apply_artifact(
+    definition: dict,
+    artifacts: dict,
+    session_dir: Path,
+    project_root: Path,
+    machine_home: Optional[Path],
+) -> Optional[dict]:
+    """ADR 0009 D1: materialise the artifact and apply it to the tree.
+
+    Resolution: the artifact id must exist in the session; the command_ref
+    is resolved like command_exit_zero (project > machine, ADR 0005 D5).
+    The artifact content (a diff) is written to ``<session>/tmp/<id>.diff``
+    and the resolved argv is executed with the diff path appended, with
+    cwd = project_root (the WORKING TREE, not the session dir).
+
+    Returns a fact dict for the pure check, or None when the artifact is
+    absent or the command_ref unresolved.
+    """
+    aid = definition.get("id")
+    if not isinstance(aid, str) or aid not in artifacts:
+        return None
+    ref = definition.get("command_ref")
+    resolved = resolve_command_ref(project_root, ref, machine_home)
+    if resolved is None:
+        return None
+
+    artifact_path = Path(artifacts[aid]["path"]) if artifacts[aid].get("path") else None
+    if artifact_path is None or not artifact_path.is_file():
+        return None
+    try:
+        raw = artifact_path.read_text(encoding="utf-8")
+    except OSError as exc:
+        return {"applied": False, "detail": f"cannot read artifact: {exc}"}
+    content = _application_content(raw)
+    if content is None:
+        return {"applied": False,
+                "detail": "artifact content is not a diff (no string)"}
+    if not content.strip():
+        return {"applied": False, "detail": "artifact content is empty"}
+
+    tmp_dir = session_dir / "tmp"
+    tmp_dir.mkdir(parents=True, exist_ok=True)
+    diff_file = tmp_dir / f"{aid}.diff"
+    try:
+        diff_file.write_text(content, encoding="utf-8")
+    except OSError as exc:
+        return {"applied": False, "detail": f"cannot materialise diff: {exc}"}
+
+    argv = list(resolved["argv"]) + [str(diff_file)]
+    timeout = resolved.get("timeout_seconds", 60)
+    try:
+        proc = subprocess.run(
+            argv, cwd=str(project_root), capture_output=True, text=True,
+            timeout=timeout,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return {"applied": False, "detail": str(exc)}
+    if proc.returncode == 0:
+        return {"applied": True, "detail": "exit 0"}
+    detail = (proc.stderr or proc.stdout or "").strip()[:500]
+    return {"applied": False, "detail": detail or f"exit {proc.returncode}"}
 
 
 def _execute_command(definition: dict, session_dir: Path) -> dict:

@@ -461,6 +461,11 @@ states:
           Zones potentiellement affectées et non couvertes par la validation.
 
     checks:
+      - name: patch_applied
+        type: artifact_applied   # ADR 0009 D1 — apply the fix before testing it
+        id: patch
+        command_ref: apply_patch
+
       - name: validation_context_present
         type: context_fields_present
         fields:

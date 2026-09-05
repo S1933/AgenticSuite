@@ -212,6 +212,17 @@ Sept lots. Chacun porte des tâches, une définition de fin dans le vocabulaire 
   `Exception`, hors du catch). Corrections : appel LLM 90 s × 3 retries + catch
   large + subprocess 300 s (évaluateur et acteur). Sans ce fix, la correction C2
   était inmesurable.
+- **D5.9 — Le runtime n'applique pas le patch → validation structurellement
+  fausse.** La chaîne discovery → investigation → fix fonctionne (diagnostic
+  LLM correct, verdicts C2 justes), mais l'état validation exécute
+  `run_tests`/`run_lint` sur un arbre **inchangé** : l'acteur produit un
+  artefact `patch`, personne ne l'applique. `unit_tests_pass` échoue donc
+  toujours, le juge passe `validation_cannot_be_completed` à juste titre → tout
+  se termine en blocked. Résolu par **ADR 0009** (check `artifact_applied`,
+  4e type — D3 amendé) : le runtime matérialise le diff et l'exécute
+  (`command_ref apply_patch`, cwd = project_root) **avant** les checks de
+  validation. Prouvé e2e sur un vrai repo git (3 tests). À rejouer en session
+  réelle quand l'API est stable (flocons réseau acteurs ce soir).
 - **D5.8 — Correction C2 validée par session réelle (bugfix-dc3b8a49).** Avant la
   correction (sessions #1/#2) : blocked sur investigation, `required_context_is_missing`
   jugé pass à tort. Après : **discovery → investigation → fix**, avec des verdicts

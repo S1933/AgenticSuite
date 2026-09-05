@@ -20,9 +20,10 @@ from agentic_suite.lint import error, warning
 # ADR 0003 D3: command_ref form
 COMMAND_REF_RE = re.compile(r"^[a-z][a-z0-9_]*$")
 
-# ADR 0003 D3: closed set of check types
+# ADR 0003 D3 + ADR 0009 D1: closed set of check types
 ALLOWED_CHECK_TYPES = frozenset(
-    {"context_fields_present", "artifact_exists", "command_exit_zero"}
+    {"context_fields_present", "artifact_exists", "command_exit_zero",
+     "artifact_applied"}
 )
 
 # ADR 0003 D8: closed set of artifact kinds

@@ -18,3 +18,10 @@ commands:
     argv: ["agentic", "lint", "workflows/v1/bugfix.yaml", "--strict"]
     timeout_seconds: 60
     cwd: .
+
+  # ADR 0009 D1 — artifact_applied: the runtime appends the diff path
+  # (resolved argv + [<diff>], cwd = project_root). For this repo the
+  # patch is applied to the working tree in place.
+  apply_patch:
+    argv: ["git", "apply", "--whitespace=nowarn"]
+    timeout_seconds: 60

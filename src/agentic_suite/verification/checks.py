@@ -90,6 +90,33 @@ def check_artifact_exists(definition: dict, artifacts: dict) -> CheckResult:
     return CheckResult(False, f"artifact '{aid}' not found")
 
 
+# ----- artifact_applied (ADR 0009) --------------------------------------------
+
+
+def check_artifact_applied(
+    definition: dict, apply_result: dict[str, Any] | None
+) -> CheckResult:
+    """ADR 0009 D1: pass when the runtime applied the artifact to the tree.
+
+    Pure by construction: *apply_result* is a fact provided by the runtime
+    ({'applied': bool, 'detail': str}), like command_exit_zero — the check
+    never performs I/O itself. None means the artifact was missing or the
+    command_ref could not be resolved.
+    """
+    aid = definition.get("id")
+    if not isinstance(aid, str) or not aid:
+        return CheckResult(False, "artifact id must be a non-empty string")
+    ref = definition.get("command_ref")
+    if not isinstance(ref, str) or not ref:
+        return CheckResult(False, "command_ref must be a non-empty string")
+    if apply_result is None:
+        return CheckResult(False, "artifact or command_ref unresolved")
+    if apply_result.get("applied"):
+        detail = str(apply_result.get("detail") or "applied")
+        return CheckResult(True, detail)
+    return CheckResult(False, str(apply_result.get("detail") or "apply failed"))
+
+
 # ----- command_exit_zero ------------------------------------------------------
 
 
