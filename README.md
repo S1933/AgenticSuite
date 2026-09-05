@@ -6,7 +6,13 @@ Agentic Suite est un système de workflows déclaratifs pour travailler avec des
 
 C'est d'abord un setup d'ingénierie personnel, gardé assez générique pour être cloné et adapté.
 
-**Phase actuelle : Phase 1 — Fondations.** Toute la documentation architecturale est écrite et ratifiée. Le premier jalon — exécuter un workflow `bugfix` déclaratif sur du travail réel, de la découverte à une complétion validée — n'est pas atteint. Voir la feuille de route plus bas.
+**Phase actuelle : Phase 2-3 livrées, Phase 4 amorcée.** Le runtime minimal est complet
+(sessions chaînées, évaluateur isolé, acteur model réel, boucle `run` jusqu'à
+terminal/blocked), l'intégration des agents est en place (providers injectés
+opencode-go), et les premières sessions réelles de validation du workflow `bugfix`
+tournent. Le jalon restant — un workflow `bugfix` qui va de la découverte à une
+**complétion validée** (patch appliqué + tests verts) — est le chemin critique du
+Lot 5. Voir la feuille de route plus bas.
 
 ## Pourquoi
 
@@ -55,7 +61,7 @@ Tout état → Abandoned      aucun correctif livré
 - **Discovery** — l'agent interroge l'utilisateur une question à la fois, en s'adaptant aux réponses précédentes, jusqu'à ce que le contexte requis soit collecté.
 - **Investigation** — les preuves et le code sont examinés ; la sortie est un diagnostic ou une incertitude documentée.
 - **Fix** — le plus petit changement justifié qui adresse la cause diagnostiquée.
-- **Validation** — le correctif est vérifié avant complétion, en réutilisant les skills de qualité et de livraison existantes.
+- **Validation** — le correctif est appliqué à l'arbre de travail (check `artifact_applied`, ADR 0009) puis vérifié avant complétion.
 - **Done** — le résultat et les artefacts sont enregistrés.
 
 Une définition complète et lintée de ce workflow vit dans [`workflows/v1/bugfix.yaml`](workflows/v1/bugfix.yaml). Les conventions utilisées par cette définition et qui attendent d'être ratifiées sont documentées dans [`workflows/v1/DECISIONS.md`](workflows/v1/DECISIONS.md).
@@ -64,7 +70,7 @@ Les conditions qui autorisent un état à être quitté, et ce qui se passe quan
 
 ## Périmètre de la v0
 
-**Inclus :** un workflow (`bugfix`), définition déclarative en YAML, identité de session persistante, états explicites, transitions sous contrat, une seule session active à la fois, intégration avec les skills existantes, linter des workflows.
+**Inclus :** deux workflows (`bugfix`, `feature`), définition déclarative en YAML, identité de session persistante (journal JSONL chaîné SHA-256), états explicites, transitions sous contrat, sessions multiples concurrentes, évaluateur distinct de l'acteur, application du patch avant validation (ADR 0009), linter des workflows, interface menu.
 
 **Exclus :** appels d'un workflow à un autre, arbres manager/worker, flottes d'agents parallèles, benchmark de modèles, ordonnancement, exécution distribuée, application graphique, optimisation automatique de fournisseur, hiérarchies manager/worker.
 
@@ -93,7 +99,10 @@ L'exécution fait appel à deux providers injectés (ADR 0005) : un **acteur**
 (`AGENTIC_ACTOR_CMD`, produit contexte + artefacts) et un **évaluateur**
 (`AGENTIC_EVALUATOR_CMD`, juge les assertions — distinct de l'acteur, ADR 0003 D9).
 Les adaptateurs model de référence (opencode-go) sont dans
-`src/agentic_suite/providers/` ; la CI n'appelle jamais un vrai modèle.
+`src/agentic_suite/providers/` ; la CI n'appelle jamais un vrai modèle. Les
+verdicts du juge sont journalisés par transition (`criteria_verdicts`, visible via
+`agentic log`) — le « pourquoi » d'un blocked se lit dans le journal, pas par
+devinette.
 
 ## Arborescence actuelle
 
@@ -105,13 +114,14 @@ Les adaptateurs model de référence (opencode-go) sont dans
 ├── docs/
 │   ├── concepts.md
 │   ├── philosophy.md
-│   └── adr/                        # 7 ADR + 1 fichier de précisions
+│   └── adr/                        # 9 ADR + 1 fichier de précisions
 ├── workflows/
 │   └── v1/
 │       ├── bugfix.yaml             # workflow déclaratif, lint-clean
+│       ├── feature.yaml            # second workflow (test de généricité)
 │       └── DECISIONS.md            # conventions provisoires, ratifiées par ADR
-├── src/agentic_suite/              # linter des workflows (Lot 0)
-├── tests/                          # 228 tests (lint, vérification, refus, session, ui, e2e)
+├── src/agentic_suite/              # linter, session, runtime, providers, UI
+├── tests/                          # 236 tests (lint, vérification, refus, session, ui, e2e)
 └── .github/workflows/ci.yml        # CI matrix Python 3.11-3.13
 ```
 
@@ -119,11 +129,11 @@ Les adaptateurs model de référence (opencode-go) sont dans
 
 **Phase 1 — Fondations.** Philosophie ✅ · architecture centrée workflow ✅ · critères de sortie et chemins d'échec ✅ · schéma déclaratif ✅ · persistance des sessions ✅ · première définition `bugfix` ✅ · linter ✅
 
-**Phase 2 — Runtime minimal.** Charger un workflow YAML, démarrer une session, persister l'état, avancer entre les états, interrompre et reprendre. ⬜
+**Phase 2 — Runtime minimal.** Charger un workflow YAML, démarrer une session, persister l'état, avancer entre les états, interrompre et reprendre. ✅ (engine, runner, CLI `start/status/resume/log`)
 
-**Phase 3 — Intégration des agents.** Mapper les rôles à des agents concrets, exposer les Skills comme primitives, introduire la configuration des fournisseurs. ⬜
+**Phase 3 — Intégration des agents.** Mapper les rôles à des agents concrets, exposer les Skills comme primitives, introduire la configuration des fournisseurs. ✅ (providers acteur/évaluateur opencode-go, résolution `command_ref`)
 
-**Phase 4 — Itération sur le réel.** Utiliser `bugfix` sur de vraies tâches. N'ajouter des abstractions que lorsqu'un usage répété les justifie. ⬜
+**Phase 4 — Itération sur le réel.** Utiliser `bugfix` sur de vraies tâches. N'ajouter des abstractions que lorsqu'un usage répété les justifie. 🔄 en cours (Lot 5 : sessions réelles, patch appliqué via ADR 0009, chemin vers `done`). Le menu interactif (Lot 6) est livré.
 
 **Plus tard.** Workflows feature, research, review et release ; exécution parallèle par worktree ; agents manager/worker ; visualisation de l'état des workflows ; exécution distante.
 
@@ -137,14 +147,14 @@ Le travail vers la Phase 4 est découpé en sept lots — `Lot 0` à `Lot 7` —
 
 - [`docs/philosophy.md`](docs/philosophy.md) — principes et raisonnement
 - [`docs/concepts.md`](docs/concepts.md) — vocabulaire
-- [`docs/adr/`](docs/adr/) — décisions d'architecture (ADR 0001 à 0007, plus un fichier de précisions)
+- [`docs/adr/`](docs/adr/) — décisions d'architecture (ADR 0001 à 0009, plus les fichiers de précisions)
 
 **Technique — comment**
 
 - [`docs/architecture.md`](docs/architecture.md) — modules, frontières, ce qui n'existe pas encore
 - [`docs/development.md`](docs/development.md) — installation, tests, ajout d'une règle de lint
 - [`docs/reference/workflow-schema.md`](docs/reference/workflow-schema.md) — référence complète du schéma YAML
-- [`docs/reference/lint-rules.md`](docs/reference/lint-rules.md) — catalogue des 18 règles de lint
+- [`docs/reference/lint-rules.md`](docs/reference/lint-rules.md) — catalogue des 20 règles de lint
 - [`docs/reference/cli.md`](docs/reference/cli.md) — commandes, codes de sortie, usage en CI
 
 **Workflow de référence**
