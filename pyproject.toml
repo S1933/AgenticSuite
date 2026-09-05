@@ -50,6 +50,7 @@ markers = [
     "verification: tests of check types (ADR 0003 D3)",
     "refusal: tests of schema refusals",
     "session: tests of session journal persistence (ADR 0004)",
+    "ui: tests of the interactive menu (Lot 6)",
     "e2e: end-to-end tests",
 ]
 filterwarnings = [

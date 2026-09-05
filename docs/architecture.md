@@ -284,7 +284,8 @@ run_attempt(session_path, session_dir, workflow, evaluator_cmd,
             -> RunResult(transition, journal)
 ```
 
-Le CLI (`agentic start|status|resume|log`) branche l'orchestrateur ; un
+Le CLI (`agentic start|status|resume|log`, + menu intégré sans sous-commande —
+Lot 6) branche l'orchestrateur ; un
 évaluateur est injecté via `AGENTIC_EVALUATOR_CMD`. L'adapter réel :
 `providers/model_evaluator.py` (separate-process judge, clé lue depuis
 `~/.config/agentic/providers.yaml` — jamais par env, que l'isolation
@@ -307,9 +308,19 @@ L'acteur est aussi injecté : `providers/model_actor.py` (worker, produit
 `{context, artifacts}` depuis le contrat d'état + snapshot lecture seule du
 projet). Jamais de vrai modèle en CI (mocks scriptés).
 
-### `agentic_suite/cli.py` — 68 lignes
+### `agentic_suite/ui.py` (Lot 6)
 
-`argparse`, une sous-commande, trois codes de sortie. Voir la [référence CLI](reference/cli.md).
+Menu interactif sans dépendance (stdlib pur) : `build_menu(project_root)` collecte
+workflows (`workflows/v<N>/<id>.yaml`) et sessions (`sessions/<id>/session.jsonl`
+avec état courant + intégrité) ; `render_menu` produit un texte numéroté ;
+`action_from_menu` mappe un choix vers un workflow ou une session. Rendu et
+mapping sont purs et testés (marker `ui`) — seule la boucle `cmd_menu` du CLI
+touche `stdin`. Les sessions corrompues sont marquées, jamais fatales.
+
+### `agentic_suite/cli.py`
+
+`argparse`, une sous-commande, trois codes de sortie. `agentic` sans sous-commande
+ouvre le menu (Lot 6). Voir la [référence CLI](reference/cli.md).
 
 `cmd_lint` est séparée de `main` pour être appelable depuis les tests sans construire
 d'`argv`.

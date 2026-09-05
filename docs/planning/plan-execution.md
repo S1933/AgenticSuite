@@ -224,11 +224,28 @@ Sept lots. Chacun porte des tâches, une définition de fin dans le vocabulaire 
 
 **Risque majeur :** choisir des bugs faciles pour faire passer les scénarios. Les bugs viennent du travail réel en cours, pas d'une liste établie pour le plan.
 
-### Lot 6 — Interface ⬜
+### Lot 6 — Interface ✅
 
 **Intention :** rendre le système utilisable sans mémoriser le CLI.
 
-**Dépendances :** Lot 5.
+**Réalisé :**
+- `agentic` sans sous-commande ouvre un **menu interactif** (stdlib pur, aucune
+  dépendance ajoutée — typer/rich de M0 différés, règle « 3 usages réels ») :
+  liste les workflows (`workflows/v<N>/`) et les sessions (`sessions/`) avec
+  état courant et intégrité du journal ; actions numérotées : workflow → `run`
+  (boucle complète), session → reprendre / journal ; `0` quitte.
+- `src/agentic_suite/ui.py` — `build_menu`, `render_menu`, `action_from_menu`
+  purs et testés (marker `ui` déclaré) ; sessions corrompues marquées
+  `[journal invalide]`, jamais fatales au menu.
+- `cmd_menu` injecte `_prompt_action(input_fn=...)` — testable sans stdin réel.
+- Architecture verrouillée par test : `ui` dans la liste PRESENT, cli.md
+  documente le menu (le titre `agentic` sans mot-clé échappe au regex des
+  sous-commandes, la liste reste stricte).
+- 228 tests verts ; lint bugfix+feature 0/0.
+
+**Découverte (constat) :** les 10 sessions de validation réelles (Lot 5)
+s'accumulent dans le menu sans filtre. Une page/`--latest` attendra qu'une
+session en termine (R2 : pas d'abstraction avant un besoin répété).
 
 ### Lot 7 — Deuxième workflow ✅
 

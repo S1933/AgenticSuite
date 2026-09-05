@@ -75,6 +75,7 @@ Ces éléments ne seront ajoutés que si l'usage réel en démontre le besoin (c
 L'interface visée présente une liste de workflows à démarrer ou reprendre, plutôt que des commandes de bas niveau. La première implémentation est une CLI, mais le modèle de workflow ne dépend pas de l'interface.
 
 ```bash
+agentic                                          # menu : workflows + sessions
 agentic lint workflows/v1/bugfix.yaml            # valide un workflow
 agentic start bugfix                              # ouvre une session, une tentative
 agentic run bugfix --context rapport.json         # boucle complète jusqu'à terminal/blocked
@@ -82,6 +83,11 @@ agentic status <session_id>                       # état + intégrité
 agentic resume <session_id> <state>               # reprend une session bloquée
 agentic log <session_id>                          # affiche le journal
 ```
+
+`agentic` sans argument ouvre le menu (Lot 6) : liste les workflows et les
+sessions (état + intégrité), actions numérotées — un workflow se démarre, une
+session se reprend ou se lit. Rendu et numérotation sont dans
+`src/agentic_suite/ui.py`, purs et testés.
 
 L'exécution fait appel à deux providers injectés (ADR 0005) : un **acteur**
 (`AGENTIC_ACTOR_CMD`, produit contexte + artefacts) et un **évaluateur**
@@ -105,7 +111,7 @@ Les adaptateurs model de référence (opencode-go) sont dans
 │       ├── bugfix.yaml             # workflow déclaratif, lint-clean
 │       └── DECISIONS.md            # conventions provisoires, ratifiées par ADR
 ├── src/agentic_suite/              # linter des workflows (Lot 0)
-├── tests/                          # 168 tests (lint, vérification, refus, session, e2e)
+├── tests/                          # 228 tests (lint, vérification, refus, session, ui, e2e)
 └── .github/workflows/ci.yml        # CI matrix Python 3.11-3.13
 ```
 

@@ -48,6 +48,7 @@ PRESENT = [
     "agentic_suite.engine",
     "agentic_suite.runner",
     "agentic_suite.session_loop",
+    "agentic_suite.ui",
     "agentic_suite.cli",
 ]
 

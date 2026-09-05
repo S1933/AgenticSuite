@@ -9,11 +9,50 @@ agentic --version        # agentic 0.0.1.dev0
 agentic --help
 ```
 
-**Périmètre actuel (Lots 0-5) : `lint`, `start`, `run`, `status`, `resume`, `log` sont
-implémentés.** Le README citait `run` à titre d'interface visée ; `run` exécute la boucle
-complète (acteur → évaluateur → engine) jusqu'à un état terminal ou `blocked`. Liste
-figée par le test `tests/e2e/test_architecture_doc.py` (les sous-commandes documentées
-ici doivent exister dans le CLI).
+**Périmètre actuel (Lots 0-6) : menu intégré (sans sous-commande), `lint`, `start`,
+`run`, `status`, `resume`, `log` sont implémentés.** `agentic` sans argument ouvre le
+menu (Lot 6) ; `run` exécute la boucle complète (acteur → évaluateur → engine)
+jusqu'à un état terminal ou `blocked`. Liste figée par le test
+`tests/e2e/test_architecture_doc.py` (les sous-commandes documentées ici doivent
+exister dans le CLI).
+
+---
+
+## `agentic` (menu — Lot 6)
+
+Sans sous-commande, `agentic` liste ce qui existe — workflows disponibles et
+sessions avec leur état — et propose des actions numérotées. Objectif :
+utilisable sans mémoriser le CLI.
+
+```bash
+agentic
+```
+
+Sortie (exemple) :
+
+```
+Agentic Suite — sessions et workflows
+
+Workflows :
+   1  bugfix (v1) — entre sur discovery
+   2  feature (v1) — entre sur intake
+
+Sessions :
+   3  bugfix-abc123 — blocked (14 blocs)
+   4  bugfix-def456 — discovery (2 blocs)
+
+0  quitter
+```
+
+Choix numérotés :
+- un numéro de workflow → `run <workflow>` (boucle complète) ;
+- un numéro de session → sous-menu : `1` reprendre (`session_resumed` vers le
+  dernier état), `2` journal (`log`) ;
+- `0` ou ligne vide → quitter.
+
+Une session dont le journal est corrompu est affichée marquée `[journal invalide]`
+sans interrompre le menu. Le rendu et la numérotation sont purs et testés
+(`src/agentic_suite/ui.py`, marker `ui`).
 
 ---
 

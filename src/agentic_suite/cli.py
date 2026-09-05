@@ -28,11 +28,11 @@ SESSIONS_DIR = "sessions"
 def _build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="agentic",
-        description="Agentic Suite CLI (Lot 4: session lifecycle)",
+        description="Agentic Suite CLI (Lot 6: menu + session lifecycle)",
     )
     p.add_argument("--version", action="version", version=f"agentic {__version__}")
 
-    sub = p.add_subparsers(dest="command", required=True)
+    sub = p.add_subparsers(dest="command")
 
     lint_p = sub.add_parser("lint", help="Lint a workflow YAML")
     lint_p.add_argument("workflow", help="Path to the workflow YAML file")
@@ -311,9 +311,67 @@ def cmd_log(session_id: str) -> int:
     return 0
 
 
+def _prompt_action(menu: dict, input_fn=None) -> int | None:
+    """Read a numbered choice; None = quit/empty. Exposed for tests.
+
+    *input_fn* defaults to builtins.input; tests inject a fake.
+    """
+    read = input_fn if input_fn is not None else input
+    try:
+        raw = read("Choix (0 pour quitter) : ").strip()
+    except EOFError:
+        return None
+    if not raw:
+        return None
+    try:
+        return int(raw)
+    except ValueError:
+        return None
+
+
+def cmd_menu() -> int:
+    """Interactive menu: list workflows/sessions, run numbered actions."""
+    from agentic_suite.ui import action_from_menu, build_menu, render_menu
+
+    menu = build_menu(Path.cwd())
+    while True:
+        print(render_menu(menu))
+        choice = _prompt_action(menu)
+        if choice is None or choice == 0:
+            return 0
+        action = action_from_menu(menu, choice)
+        if action is None:
+            print(f"error: choix {choice} hors limites", file=sys.stderr)
+            continue
+        if action["kind"] == "workflow":
+            print(f"\n--- démarre {action['id']} ---")
+            rc = cmd_run(action["id"])
+            if rc != 0:
+                print(f"error: run {action['id']} a échoué (code {rc})",
+                      file=sys.stderr)
+        else:
+            session_id = action["id"]
+            print(f"\n--- session {session_id} ---")
+            print("  1  reprendre (session_resumed)")
+            print("  2  journal")
+            try:
+                raw = input("Choix : ").strip()
+            except EOFError:
+                return 0
+            if raw == "1":
+                journal = load_journal(_session_dir(session_id) / "session.jsonl")
+                last = journal[-1].get("to_state")
+                cmd_resume(session_id, last or "blocked")
+            elif raw == "2":
+                cmd_log(session_id)
+        menu = build_menu(Path.cwd())
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
+    if args.command is None:
+        return cmd_menu()
     if args.command == "lint":
         return cmd_lint(args.workflow, strict=args.strict)
     if args.command == "start":
